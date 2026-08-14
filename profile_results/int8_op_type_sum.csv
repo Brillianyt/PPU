@@ -1,0 +1,5 @@
+Row#,OP Type,Total Time (%),Avg (ns),Total (ns),Instances,PPU Active Time (ns),Active Percent (%),Top OP Time (%),Top OP Name,
+1,"Summary",100.0,10272,1004399302,97771,1004399302,100.0,11.4,"gemm_ktype0_aiu1_mtype1_dtypeBF16xBF16xFP32xBF16xBF16_tile64x128x32x32x64x2_layout0x1x0x0_align1x1x8x8_splitk0_fusion5_prefetch0_fp32tc0_ptrhost1_schedule0_algnBias0",
+2,"GEMM",61.4,28450,616716189,21677,616716189,100.0,11.4,"gemm_ktype0_aiu1_mtype1_dtypeBF16xBF16xFP32xBF16xBF16_tile64x128x32x32x64x2_layout0x1x0x0_align1x1x8x8_splitk0_fusion5_prefetch0_fp32tc0_ptrhost1_schedule0_algnBias0",
+3,"Native",37.6,5113,377483825,73814,377483825,100.0,5.1,"_fwd_kernel",
+4,"Triton",1.0,4473,10199288,2280,10199288,100.0,0.8,"triton_poi_fused__to_copy_add_cat_mul_neg_slice_unsqueeze_0",

@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Huge profile data (rebuildable via asys attach)
+profile_results/*.asysrep
+profile_results/*hggc_kern_exec_trace.csv
+profile_results/*hggc_ppu_trace*.csv
+profile_results/*hggc_api_trace*.csv
+profile_results/*ppu_op_trace*.csv
+profile_results/*device_memory_usage*.csv
+profile_results/*hgtx_*.csv
+profile_results/*pccl_*.csv
+profile_results/*_backtrace_*.csv
+profile_results/*_pybt_*.csv
+
+# Loose profile files in root
+/profile_*.asysrep
+
+# Model weights (excluded by competition rules)
+Qwen3.5-2B/
+quant/
+
+# Test data (excluded per user instruction — organizer holds the real test set;
+# mmbench_dev_* are public dev sets kept locally for reproducible benchmarking only)
+datasets/
+
+# System
+*~
+*.swp
+
+# IDE
+.vscode/
+.idea/
+.DS_Store

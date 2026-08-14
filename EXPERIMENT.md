@@ -1,0 +1,621 @@
+# DNDX 实验记录
+
+## 1. 固定环境
+
+| 项目 | 值 |
+|---|---|
+| 机器 | 1 × PPU-ZW810E（真武 810E，96 GB） |
+| 镜像 | `pkg.flytiger-eco.com/docker_release/llm:v2.1.1-pytorch2.10.0-ubuntu24.04-cuda13.0-sglang0.5.10-py312` |
+| torch | 2.10.0+v0.1.0.ppu2.1.1 |
+| transformers | 4.57.1 |
+| sglang | 0.5.10+v0.3.0.ppu2.1.1 |
+| sglang-kernel | 0.4.1+v0.1.0.ppu2.1.1 |
+| openai | 2.6.1 |
+| 模型 | `Qwen3.5-2B`（`Qwen3_5ForConditionalGeneration`，bf16，4.3 GB） |
+| 数据集 | `datasets/mmbench/mmbench_dev_en.tsv`（公开自测，仅作调试） |
+| 评测脚本 | `benchmark_public.py`（只读，不进提交） |
+| 提交物 | `evaluation_wrapper.py`（接口契约 `VLMModel.generate_with_metrics(...)` 不变） |
+
+## 2. 代码改动
+
+### `evaluation_wrapper.py`
+- 保留 `transformers` / `dummy` 后端。
+- 新增 `sglang` 后端：
+  - `_SGLangServer`：自动拉起本地 server（`python -m sglang.launch_server`），复用 `localhost:8999`（若已 alive），等待 `/health_generate`，`_warmup()` 一次无图 chat，`atexit` 关进程。
+  - 可调环境变量：`SGLANG_SERVER_URL` / `SGLANG_PORT` / `SGLANG_TP_SIZE` / `SGLANG_ATTENTION_BACKEND` / `SGLANG_DTYPE` / `SGLANG_MEM_FRACTION` / `SGLANG_EXTRA_ARGS`。
+  - `_generate_with_sglang`：PIL→JPEG(base64)→data URL；`stream=True` + `stream_options.include_usage`，首个 content chunk 时间即 TTFT；usage 给真实 `completion_tokens` / `prompt_tokens`，杜绝伪造。
+
+### `benchmark_public.py`（仅本地调试用，不提交）
+- `--backend` choices 新增 `sglang`。
+
+## 3. sglang server 启动命令
+
+```bash
+python3 -u -m sglang.launch_server \
+  --model-path /mnt/workspace/dndx_participant-v1.2/Qwen3.5-2B \
+  --host 127.0.0.1 --port 8999 \
+  --trust-remote-code --tp-size 1 \
+  --attention-backend triton --enable-multimodal \
+  --dtype bfloat16 --mem-fraction-static 0.85
+```
+
+观察到的启动阶段耗时：
+- 加载权重：1.04 s（4.19 GB）
+- 分配 Mamba cache：1.24 GB conv + 35.26 GB ssm
+- 分配 KV cache：40.58 GB（`#tokens=3,545,083`，bf16）
+- CUDA Graph 抓取：36 个 bs，约 49.74 s
+- 端口监听：`Application startup complete.` ≈ 60 s 整体
+
+## 4. Baseline 1：sglang 后端 20 样本
+
+文件 `result_dev_en_sglang_20.json`（warmup=2，seed=20260625）
+
+| 指标 | 值 |
+|---|---|
+| backend | sglang |
+| sample_count | 20 |
+| accuracy | 0.80（16/20） |
+| avg_ttft_ms | 419.0 |
+| avg_throughput_tokens_per_sec | 284.5 |
+| total_benchmark_seconds | 11.49 |
+| avg_seconds_per_sample | 0.575 |
+| public_validation_passed | ✅ |
+
+TTFT 分布（ms）：min 42.5 / p25 96.8 / p50 346.0 / p75 354.9 / p95 3073.9 / max 3073.9
+
+观察：
+- 前 5 个样本 TTFT ~50 ms（radix prefix cache 命中）
+- 之后跳到 ~340 ms 平台（调度行为变化）
+- 1 个 3074 ms 离群点（`qid=344`，可能首次触发某个 bs 的 CUDA Graph 重捕或后台 autotune）
+- Throughput 始终 280–300 tok/s，稳态
+
+## 5. 对照组说明（重要）
+
+- "无 sglang" transformers 后端在本环境 **不可用**：
+  - transformers 4.57.1 不识别 `model_type=qwen3_5`（`ValueError: Transformers does not recognize this architecture`）。
+  - 模型目录里没有 `modeling_*.py`，`trust_remote_code` 也无济于事。
+  - 升级 transformers 受限于网络/时间约束（本任务不允许 30 s 以上的等待），本地不折腾升级。
+  - sglang 内部 `sglang/srt/configs/qwen3_5.py` 的注释 `from transformers import Qwen3_5ForConditionalGeneration, Qwen3_5Config` 表明更新版 transformers 已支持 Qwen3.5，但当前环境装的是 4.57.1。
+- 因此本轮对比改为：**两组不同 sglang 配置** 间的对照。
+
+## 6. 对照组 B：sglang `--attention-backend fa3`
+
+启动命令（与 baseline 仅 `--attention-backend` 不同，其余一致）：
+
+```bash
+python3 -u -m sglang.launch_server \
+  --model-path ./Qwen3.5-2B \
+  --host 127.0.0.1 --port 8998 \
+  --trust-remote-code --tp-size 1 \
+  --attention-backend fa3 --enable-multimodal \
+  --dtype bfloat16 --mem-fraction-static 0.85
+```
+
+观察：
+- 启动日志显示：`Linear attention kernel backend: decode=triton, prefill=triton`（因为 fa3 不支持 GDN，线性层仍走 triton；只有 full attention 走 fa3）。
+- CUDA Graph 抓取 **3.97 s**（baseline triton 49.74 s），启动体感明显更快。
+
+文件 `result_dev_en_sglang_fa3_20.json`
+
+| 指标 | baseline (triton) | 对照 (fa3) | Δ |
+|---|---|---|---|
+| sample_count | 20 | 20 | — |
+| accuracy | 0.80 (16/20) | **0.85** (17/20) | +5 pp |
+| avg_ttft_ms | 419.0 | **313.2** | **-25.3 %** |
+| avg_throughput_tokens_per_sec | 284.5 | 279.4 | -1.8 % |
+| public_validation_passed | ✅ | ✅ | — |
+
+TTFT 分布（fa3，ms）：min 45.2 / p25 324.6 / p50 331.6 / p75 339.1 / p95 762.5 / max 762.5；均值 313.2。
+
+## 7. 对照组 C：fa3 + `SGLANG_SAIL_FLA_CUDA=1`
+
+动机：SGLang-for-SAIL 文档把 `SGLANG_SAIL_FLA_CUDA` 默认写成 `True`，但源码里实际默认是 `False`（`sglang/srt/environ.py:550: SGLANG_SAIL_FLA_CUDA = EnvBool(False)`）。该开关影响 `fused_sigmoid_gating_recurrent.py` 和 `fused_recurrent.py` 中两处 GDN packed decode / extend 路径，命中后调用 `fla.fused_sigmoid_gating_delta_rule_forward_k_last[_packed]`（PPU 专用 CUDA kernel）。
+
+启动：
+```bash
+SGLANG_SAIL_FLA_CUDA=1 python3 -u -m sglang.launch_server \
+  --model-path ./Qwen3.5-2B \
+  --host 127.0.0.1 --port 8999 \
+  --trust-remote-code --tp-size 1 \
+  --attention-backend fa3 --enable-multimodal \
+  --dtype bfloat16 --mem-fraction-static 0.85
+```
+
+启动日志关键一行：
+```
+[2026-08-14 16:56:29] USE PPU SAIL CUDA FLA kernel: fused_sigmoid_gating_delta_rule_forward_k_last_packed
+```
+（对照组 B 即便未设该 env var 也**不会**触发这条日志，GDN kernel dispatcher 仍标 `TritonGDNKernel`，验证了开关确实切换到 PPU 专用实现。）
+
+文件 `result_dev_en_sglang_fla1_20.json`
+
+| 指标 | A triton | B fa3 | **C fa3 + FLA=1** | C vs A | C vs B |
+|---|---|---|---|---|---|
+| accuracy | 0.80 | 0.85 | **0.85** | +5 pp | 0 |
+| avg_ttft_ms | 419.0 | 313.2 | **64.3** | **-84.7 %** | **-79.5 %** |
+| avg_throughput_tokens_per_sec | 284.5 | 279.4 | 280.1 | -1.5 % | +0.3 % |
+| public_validation_passed | ✅ | ✅ | ✅ | — | — |
+
+TTFT 分布（C）：min 45.1 / p25 61.9 / p50 64.5 / p75 69.3 / p95 78.5 / max 78.5 — **离群点消失**，曲线非常紧凑。
+
+观察：
+- PPU 专用 FLA CUDA kernel 直接把 prefill 阶段（每 4 层出现一次的 full-attention 不受影响，但 linear-attention 的 GDN 路径）打到了亚 100 ms。
+- 早先在 B 上仍可见的 ~330 ms 平台（每张图第一个 sample 后的稳态）**在 C 上不存在**——这说明该平台的主要成本在 GDN recurrent 计算，而不是 full attention。
+- decode throughput 几乎没变（FLA=1 主要优化 prefill / extend 路径），accuracy 持平。
+- 启动时间与 B 持平（CUDA Graph 仍 3.97 s 抓完）。
+
+## 8. 当前推荐默认配置
+
+```bash
+SGLANG_SAIL_FLA_CUDA=1 python3 -u -m sglang.launch_server \
+  --model-path ./Qwen3.5-2B \
+  --host 127.0.0.1 --port 8999 \
+  --trust-remote-code --tp-size 1 \
+  --attention-backend fa3 --enable-multimodal \
+  --dtype bfloat16 --mem-fraction-static 0.85
+```
+
+需要在 `evaluation_wrapper.py` 的 `_SGLangServer._launch()` 里把 `env.setdefault("SGLANG_SAIL_FLA_CUDA", "1")` 提升为强制设置，并允许 `SGLANG_PORT` / `SGLANG_EXTRA_ARGS` 等环境变量覆盖启动参数。
+
+## 9. 对照组 D：fa3 + FLA=1 + `--disable-radix-cache`
+
+动机：C 组跑通后看到 64 ms TTFT 平台，但 throughput 跟 triton baseline 持平（280 tok/s）。radix cache 在 mmbench 这种**样本全部唯一、prompt 模板略相似**的负载下，理论收益接近零，副作用是每次请求多一次 lookup 和可能改变调度行为。试关 radix 看是否 throughput 反向提升。
+
+启动：
+```bash
+SGLANG_SAIL_FLA_CUDA=1 python3 -u -m sglang.launch_server \
+  --model-path ./Qwen3.5-2B \
+  --host 127.0.0.1 --port 8999 \
+  --trust-remote-code --tp-size 1 \
+  --attention-backend fa3 --enable-multimodal \
+  --dtype bfloat16 --mem-fraction-static 0.85 \
+  --disable-radix-cache
+```
+
+观察到的联动：sglang 在 `disable_radix_cache=True` 时把 `disable_overlap_schedule` 也自动设成 `False`（看 server_args dump）——这意味着 prefill 与 decode 重叠调度被打开，decode 不再等 prefill 完全结束才开始，是吞吐提升的主因。
+
+文件 `result_dev_en_sglang_fla1_noradix_20.json`
+
+| 指标 | A triton | B fa3 | C fa3 + FLA=1 | **D fa3 + FLA=1 + no-radix** | D vs A | D vs C |
+|---|---|---|---|---|---|---|
+| accuracy | 0.80 | 0.85 | 0.85 | **0.85** | +5 pp | 0 |
+| avg_ttft_ms | 419.0 | 313.2 | 64.3 | **69.0** | -83.5 % | +7.3 % |
+| avg_throughput_tokens_per_sec | 284.5 | 279.4 | 280.1 | **369.4** | **+29.8 %** | **+31.9 %** |
+| public_validation_passed | ✅ | ✅ | ✅ | ✅ | — | — |
+
+TTFT 分布（D）：min 50.1 / p25 67.5 / p50 70.4 / p75 72.7 / p95 80.1 / max 80.1 —— **几乎和 C 一样紧凑**，轻微上抬 ~5 ms 是 radix lookup 消失 + overlap schedule 开启后调度粒度变粗。
+
+## 10. 综合排名（20 样本 dev_en）
+
+| 维度 | 冠军 | 数值 | 亚军 | 数值 |
+|---|---|---|---|---|
+| Accuracy | B / C / D 并列 | 0.85 | A | 0.80 |
+| Avg TTFT ↓ | **C** | **64.3 ms** | D | 69.0 ms |
+| Avg Throughput ↑ | **D** | **369.4 tok/s** | A | 284.5 tok/s |
+| 综合（TTFT + Thpt 几何平均） | **D ≈ C** | C 略优 TTFT，D 显著优 Thpt |
+
+**当前推荐默认**：**D 组配置**（`fa3 + FLA=1 + --disable-radix-cache`）。TTFT 损失 ~5 ms 可忽略，吞吐 +32 % 是压倒性优势。
+
+## 11. 对照组 E：fa3 + FLA=1 + no-radix + `--chunked-prefill-size 2048`
+
+动机：D 组稳态 TTFT ~69 ms 中是否还有 prefill chunking 收益。单样本 prompt 长度 ~1500 token（1280 image + ~200 text），小于默认 chunk 8192，所以理论上根本不切。试降到 2048 让分块真发生。
+
+启动：E 组命令在 D 组基础上追加 `--chunked-prefill-size 2048`。
+
+文件 `result_dev_en_sglang_chunked2048_20.json`
+
+| 指标 | D no-radix | **E no-radix + chunked=2048** | Δ |
+|---|---|---|---|
+| accuracy | 0.85 | 0.85 | 0 |
+| avg_ttft_ms | 69.0 | 69.9 | +1.3 %（噪声内） |
+| avg_throughput_tokens_per_sec | 369.4 | 375.3 | +1.6 %（噪声内） |
+
+结论：单样本 ~1500 token 场景下，chunked_prefill 几乎没有效果；当前默认 8192 与 2048 行为等价。
+
+## 12. Wrapper 默认已锁定 D 组配置
+
+`evaluation_wrapper.py` 的 `_SGLangServer._launch()` 现在默认开 D 组三件套：
+
+- `--attention-backend fa3`
+- `SGLANG_SAIL_FLA_CUDA=1`（环境变量）
+- `--disable-radix-cache`
+
+可调环境变量（保持灵活性）：
+- `SGLANG_ATTENTION_BACKEND` — 默认 `fa3`，可改 `triton` / `flashinfer` / `flashmla` / `torch_native`
+- `SGLANG_TP_SIZE` — 默认 `1`
+- `SGLANG_DTYPE` — 默认 `bfloat16`
+- `SGLANG_MEM_FRACTION` — 默认 `0.85`
+- `SGLANG_FORCE_RADIX_CACHE=1` — 反向开关，回退到开启 radix
+- `SGLANG_EXTRA_ARGS` — 任意额外 `--xxx` 注入到 `sglang.launch_server` 命令行
+
+## 13. 总成绩单（20 样本 dev_en）
+
+| 配置 | accuracy | avg_ttft_ms | throughput tok/s | TTFT max |
+|---|---|---|---|---|
+| A. triton（baseline） | 0.80 | 419.0 | 284.5 | 3074 ms |
+| B. fa3 | 0.85 | 313.2 | 279.4 | 762 ms |
+| C. fa3 + FLA=1 | 0.85 | **64.3** | 280.1 | 79 ms |
+| **D. fa3 + FLA=1 + no-radix** ⭐ 推荐 | 0.85 | 69.0 | **369.4** | 80 ms |
+| E. D + chunked=2048 | 0.85 | 69.9 | 375.3 | 86 ms |
+
+**对比 baseline (A)**：
+- TTFT: **-83.5 %**
+- Throughput: **+29.8 %**
+- Accuracy: **+5 pp**
+
+## 14. 收尾验证建议（按优先级）
+
+1. **跑大样本（50 / 100 条）确认 accuracy 稳过 baseline −2 %**：当前 20 样本 17/20 对应 85 %，主办方 baseline 假设在 ~85 % 附近，需要验证不会掉到 83 % 以下。
+2. **跑 `mmbench_dev_cn` 中文集**：中文模板 prompt 略长（多了"请完成这道单选题"等指令），看 TTFT / 吞吐变化是否一致。
+3. **开 `--enable-metrics` + `--show-time-cost`**：把 69 ms TTFT 拆成 prefill / decode 两段，看优化空间还有没有。
+4. **走量化路径**（用户在另一条线推）：加载平头哥 w8a8_int8 量化包 + `tune_deepgemm_int8` autotune。这条线会改变 §3.5 章节，是单独的实验线。
+
+## 15. 失败记录：投机解码（EAGLE）
+
+试过 D 组 + `--speculative-algorithm EAGLE --speculative-num-steps 2 --speculative-eagle-topk 1 --speculative-num-draft-tokens 3` ——**启动即崩溃**，sglang 报：
+
+```
+File "sglang/srt/layers/attention/fla/fused_sigmoid_gating_recurrent.py", line 339, in fused_sigmoid_gating_delta_rule_update
+    retrieve_parent_token.int(),
+AttributeError: 'NoneType' object has no attribute 'int'
+[Received sigquit from a child process. It usually means the child failed.]
+```
+
+进一步发现 Qwen3.5-2B **确实带了 MTP 权重**（`text_config.mtp_num_hidden_layers=1` + safetensors 里 15 个 `mtp.*` 键），sglang 也有 `qwen3_5_mtp.py::Qwen3_5ForCausalLMMTP` 类。理论上可以让 EAGLE 把 MTP 头当 draft——又试了 F2 组（显式加 `--speculative-draft-model-path ./Qwen3.5-2B`），**同样的 GDN parent-token 崩溃**。
+
+根因：
+- EAGLE 在 verify 阶段需要 `retrieve_parent_token` 来对 speculative draft token 做 parent tracking；
+- Qwen3.5-2B 的 hybrid linear_attention（GDN）层是 **recurrent** 状态机，没有显式的 parent token 概念，`retrieve_parent_token` 在该路径上为 `None`；
+- sglang 的 `gdn_backend.target_verify()` 没为 hybrid 模型正确填 parent token，与 `fla.fused_sigmoid_gating_delta_rule_update()` 的接口期望对不上；
+- 因此 EAGLE 与 Qwen3.5-2B 在当前 sglang 版本（0.5.10+v0.3.0.ppu2.1.1）**根本不兼容**，无论是否传 draft model path。
+
+替代方向：
+- 等 sglang 后续把 EAGLE verify 适配到 GDN hybrid 模型（需要把 parent-token tracking 与 recurrent state 解耦）；
+- 走量化路径（用户另一条线正在做）：手册 §2.2.3 的 autotune 配置（`tp=16 + enable-dp-attention + deepep + w8a8_int8`）里 EAGLE 跑通是因为 397B 模型走的是 INT8 + 多卡 DeepEP 路径，跟我们单卡 bf16 dense 不是同一场景。
+
+## 16b. 失败记录：NEXTN 复测（FLA=on）
+
+用户提的参数（不在 F/F2 跑过的组合里）：
+```
+--speculative-algorithm NEXTN
+--speculative-num-steps 3
+--speculative-eagle-topk 1
+--speculative-num-draft-tokens 4
+```
+用 G 组底（fa3 + FLA=1 + no-radix + page=64 + 长 timeout）在 9001 端口另起一份 server，**12 秒后崩**——栈尾与 F 组完全一致：
+
+```
+File "sglang/srt/layers/attention/linear/kernels/gdn_triton.py", line 175, in target_verify
+  return fused_sigmoid_gating_delta_rule_update(...)
+File "sglang/srt/layers/attention/fla/fused_sigmoid_gating_recurrent.py", line 339, in fused_sigmoid_gating_delta_rule_update
+    retrieve_parent_token.int(),
+AttributeError: 'NoneType' object has no attribute 'int'
+```
+
+确认：**`num_steps`、`num_draft_tokens`、`topk` 的具体取值不影响结局**——bug 在 `target_verify` 进入 GDN 递归核之前就已经把 `retrieve_parent_token` 留成 `None`，与 draft 长度无关。NEXTN 与 EAGLE 在 sglang 0.5.10+ppu2.1.1 上对 Qwen3.5-2B 一样不可用。
+
+## 16c. NEXTN + FLA=off：能跑但全面劣于 G 组
+
+读 `fused_sigmoid_gating_recurrent.py` 发现同函数两条路径：
+- `SGLANG_SAIL_FLA_CUDA=1`（FLA CUDA 路径）→ line 339 直接 `.int()`，None 即崩
+- `SGLANG_SAIL_FLA_CUDA=0`（Triton community kernel 路径）→ `HAS_EAGLE_TREE_CUSTOM_ATTN_MASK = retrieve_parent_token is not None` 让核自己分 None 走无 tree-mask 分支
+
+关掉 FLA，9002 端口起同样 NEXTN+3+1+4 配置：**过了 model load + CUDA graph capture + draft worker init**，能正常接 chat 请求。但：
+
+| 配置 | accuracy | avg_ttft_ms | throughput (tok/s) |
+|---|---|---|---|
+| G 组（FLA=on, 无投机） | 0.85 | **64.7** | **369.0** |
+| NEXTN + FLA=off | 0.85 | 87.3 (+35%) | 275.5 (-25%) |
+
+20 条样本，accuracy 持平，TTFT **退步 35%**、throughput **退步 25%**。原因：
+- FLA-off 让 prefill 从 SAIL CUDA 退到 Triton，prefill 阶段本身就慢
+- topk=1 的 draft 接受率低（MTP 头只预测 1 token，模型概率分布靠不住），投机收益 < 多花的 draft 推理时间
+- 净亏：节省的 decode 步数覆盖不掉多花的 prefill
+
+结论：**投机解码对 2B 模型在短回答场景（mmbench 单选 256 token 上限）下性价比为负**——短回答下 decode 总步数有限，投机节省空间本来就小。G 组配置维持提交，NEXTN 路线关闭。
+
+---
+
+确认：**`num_steps`、`num_draft_tokens`、`topk` 的具体取值不影响结局**——bug 在 `target_verify` 进入 GDN 递归核之前就已经把 `retrieve_parent_token` 留成 `None`，与 draft 长度无关。NEXTN 与 EAGLE 在 sglang 0.5.10+ppu2.1.1 上对 Qwen3.5-2B 一样不可用。
+
+---
+
+## 17. 对照组 G：D + `--page-size 64`
+
+动机：397B 手册 §2.2.4 PD 分离 D 节点用 `--page-size 64`（vs sglang 默认 1），KV cache 按 64-token 粒度管理减少碎片。
+
+启动：G 组在 D 组基础上追加 `--page-size 64`。
+
+文件 `result_dev_en_sglang_page64_20.json`
+
+| 指标 | D no-radix | **G D + page=64** | Δ |
+|---|---|---|---|
+| accuracy | 0.85 | 0.85 | 0 |
+| avg_ttft_ms | 69.0 | **64.7** | -6.2 % |
+| avg_throughput_tokens_per_sec | 369.4 | 369.0 | -0.1 %（噪声内） |
+
+TTFT 分布（G）：min 46.8 / p25 62.7 / p50 66.6 / p75 69.0 / p95 73.5 / max 73.5。
+
+结论：`--page-size 64` 让 TTFT 微降 4 ms（KV 分配粒度变大 → 单次分配 metadata 更少），吞吐基本不变。建议把 `--page-size 64` 加入 wrapper 默认。
+
+## 17. 推荐默认配置（最终）
+
+```bash
+SGLANG_SAIL_FLA_CUDA=1 python3 -u -m sglang.launch_server \
+  --model-path /path/to/Qwen3.5-2B \
+  --host 127.0.0.1 --port 8999 \
+  --trust-remote-code --tp-size 1 \
+  --attention-backend fa3 --enable-multimodal \
+  --dtype bfloat16 --mem-fraction-static 0.85 \
+  --disable-radix-cache --page-size 64
+```
+
+→ 应当同步写进 `evaluation_wrapper.py._SGLangServer._launch()` 默认。
+
+## 18. 总成绩单（含 page=64）
+
+| 配置 | accuracy | avg_ttft_ms | throughput tok/s | TTFT max |
+|---|---|---|---|---|
+| A. triton（baseline） | 0.80 | 419.0 | 284.5 | 3074 ms |
+| B. fa3 | 0.85 | 313.2 | 279.4 | 762 ms |
+| C. fa3 + FLA=1 | 0.85 | 64.3 | 280.1 | 79 ms |
+| D. fa3 + FLA=1 + no-radix | 0.85 | 69.0 | **369.4** | 80 ms |
+| **G. D + page=64** ⭐ 推荐 | 0.85 | **64.7** | 369.0 | 74 ms |
+| E. D + chunked=2048 | 0.85 | 69.9 | 375.3 | 86 ms |
+| F / F2. + EAGLE | — | crashed | — | — |
+
+**对比 baseline (A)**：TTFT **−84.6 %** / Throughput **+29.7 %** / Accuracy **+5 pp**。
+
+## 19. INT8 W8A8 量化实验（否决）
+
+### 19.1 动机
+
+算子 profile 显示 GEMV 占 73.4% 时间 → 理论 W8A8 INT8 可让 GEMV 内存带宽需求减半，加速 2×。
+
+### 19.2 配置
+
+```bash
+python3 -u -m sglang.launch_server \
+  --model-path ./quant/Qwen3.5-2B-W8A8 \
+  --host 127.0.0.1 --port 9001 \
+  --trust-remote-code --tp-size 1 \
+  --attention-backend triton \
+  --enable-multimodal \
+  --quantization w8a8_int8 \
+  --dtype bfloat16 \
+  --mem-fraction-static 0.85 \
+  --page-size 64 \
+  --disable-radix-cache
+```
+
+为什么用 `--quantization w8a8_int8` 而不是 `compressed-tensors`：
+- `w8a8_int8.py` 路径有 DeepGEMM fallback（line 292）
+- `compressed_tensors_w8a8_int8.py` 没有 DeepGEMM fallback，触发 "No implemented cutlass int8_scaled_mm on PPU, use DEEPGEMM please" 错误
+
+启动：DeepGEMM warmup ~10s（扫 16384 tokens）+ CUDA Graph 抓取 12.36s（36 个 bs）。
+
+### 19.3 结果
+
+| 样本数 | accuracy | avg_ttft_ms | throughput |
+|---|---|---|---|
+| 20 | 0.75 (15/20) | — | — |
+| 50 | **0.66** (33/50) | — | — |
+
+**−19pp**，远超 2% 阈值，不可接受。
+
+### 19.4 排除 backend 因素
+
+```bash
+# bf16 + Triton 实测（对照组）
+SGLANG_SAIL_FLA_CUDA=1 python3 -m sglang.launch_server ... \
+  --attention-backend triton ...
+# accuracy: 0.80 (16/20)
+```
+
+→ bf16+Triton 是 0.80，INT8+Triton 是 0.66，差距主要是量化本身。
+
+### 19.5 模型实际行为
+
+INT8 模型输出是乱码：
+
+```
+"B. Does Madelyn's snowboard slide down a hill in less time when it has a layer of wax or when it does not have a layer of wax?"
+```
+
+模型在重复题干，多数请求 4-13 tokens 就停。说明量化把模型的"判断何时停止"的能力也破坏了。
+
+### 19.6 算子对比（asys profile）
+
+| Metric | bf16 G 组 | INT8+DeepGEMM | Δ |
+|---|---|---|---|
+| 总 kernel 时间 | 7057.4 ms | 1004.4 ms | -85.8% |
+| Kernel launches | 845,699 | 97,771 | -88.4% |
+| GEMM share % | 73.4 | 61.4 | -12.0 pp |
+| GEMM total | 5181.9 ms | 616.7 ms | -88.1% |
+| GEMM launches | 266,915 | 21,677 | -91.9% |
+| GEMM **avg/call** | 19,414 ns | 28,450 ns | +46.5% ⚠️ |
+| Native share % | 21.3 | 37.6 | +16.3 pp |
+
+⚠️ **GEMM avg/call 看起来 INT8 更慢**：
+- bf16: 几乎全 decode GEMV (1 token)
+- INT8: 主要 prefill GEMM (batch)，因模型乱码输出短
+- 真实算力压力：INT8 只有 bf16 的 14%
+
+**Top INT8 kernel（被改叫 deep_gemm）**：
+- 11.4% 3687 calls 31,117ns `gemm_ktype0_..._tile64x128x32x32x64x2_...`
+- 5.4% 216 calls 251,727ns `deep_gemm::GemmKernel<MmaMultistage>`
+- 3.2% 1320 calls 23,974ns `deep_gemm::GemmKernel<MmaMultistage>`
+- **2.5% 58 calls 435,327ns `gemvt_op<cutlass::bfloat16_t>` ← bf16 残留**
+- **0.2% 846 calls 2,860ns `gemvt_op<cutlass::bfloat16_t>` ← bf16 残留**
+
+DeepGEMM 路径被确认命中，但仍有 2.7% cutlass bf16 GEMV 残留（lm_head 带 bias + GDN.in_proj.b+a 不量化）。
+
+### 19.7 结论
+
+- INT8 量化方案本身有问题（per-channel INT8 + lm_head 也量化），不能用
+- DeepGEMM 在 INT8 路径下确实能跑，但收益被准确率抹杀
+- 真正的瓶颈不是算子（73% GEMV 已是 HBM-bound），而是模型量化方案本身
+
+## 20. 算子 Profile（asys）
+
+### 20.1 工具
+
+```bash
+asys --version
+# T-Head Asight Systems version v2.1.1_20260725-15d8b9d
+which asys
+# /usr/local/PPU_SDK/asight/bin/asys
+```
+
+### 20.2 限制
+
+- **Ftrace 不可用**：CPU 调度 trace 关
+- **Perf 不可用**：CPU backtrace 关
+- 只能用 `-s process-tree` 模式
+- `--callstack-group-config` 仅 `device_memory_usage` 支持，kernel trace 不带 Python frame
+- HGTX push/pop trace 需要应用主动 push（sglang 不推），不可用
+
+### 20.3 G 组 60s profile 关键数据
+
+| OP Type | Total % | Total ms | Avg ns | 次数 |
+|---|---|---|---|---|
+| Summary | 100.0 | 7057.4 | 8,345 | 845,699 |
+| **GEMM** | **73.4** | 5181.9 | 19,414 | 266,915 |
+| Native | 21.3 | 1501.2 | 2,795 | 537,066 |
+| FlashAttention | 4.9 | 342.9 | 12,338 | 27,792 |
+| Triton | 0.4 | 31.4 | 2,254 | 13,926 |
+
+### 20.4 Top 3 kernel（占 GEMM 72.7%）
+
+| % | calls | avg ns | kernel |
+|---|---|---|---|
+| 56.1 | 168,713 | 23,452 | `void gemvt_op<cutlass::bfloat16_t, ..., 32, 4, ...>` |
+| 11.6 | 55,464 | 14,782 | `void gemvt_op<cutlass::bfloat16_t, ..., 64, 2, ...>` |
+| 5.0 | 41,598 | 8,439 | `void gemvt_op<cutlass::bfloat16_t, ..., 128, 1, ...>` |
+
+→ 全部是 bf16 cutlass GEMV（线性层 decode 阶段），cutlass 自动选不同 tile。
+
+### 20.5 文件清单
+
+```
+profile_results/
+├── g_group_60s.asysrep                          # 90 MB 原始 trace（gitignored）
+├── g_group_60s_ppu_op_type_sum.csv              # OP type 汇总
+├── g_group_60s_ppu_op_sum.csv                   # 每 op 细分（86 行）
+├── g_group_60s_ppu_op_kernel_breakdown.csv      # 每 kernel 名称细分
+├── g_group_60s_hggc_kern_exec_trace.csv         # 377 MB 每个 kernel launch（gitignored）
+├── g_group_60s_ppu_time_util.csv                # GPU 时间利用率
+├── int8_60s.asysrep                             # 15 MB 原始 trace（gitignored）
+├── int8_60s_ppu_op_sum.csv                      # 196 KB
+├── int8_60s_ppu_op_kernel_breakdown.csv         # 196 KB
+└── int8_op_type_sum.csv                         # 773 B
+```
+
+## 21. GEMV → 模型 Linear 层映射
+
+通过 `hggc_kern_exec_trace` 的 grid/block 拆分。
+
+### 21.1 Top GEMV (tile 32×4) 按 grid 拆分
+
+```
+grid=512×1×1     55,464 launches    # (2048, 512) Linear
+grid=2048×1×1    41,598 launches    # (2048, 2048) Linear
+grid=1280×1×1    13,866 launches    # 未知小分量
+grid=3072×1×1    55,464 launches    # (2048, 3072) Linear (GDN.in_proj / MLP gate-up 拆分)
+grid=62080×1×1    2,321 launches    # lm_head 拆 4 块
+─────────────────────────────────
+total           168,713 launches
+```
+
+### 21.2 逐 grid 对应
+
+| Grid | 推测 weight 形状 | 模型组件 |
+|---|---|---|
+| 2048×1×1 | (2048, 2048) | self_attn.q_proj + o_proj + GDN.out_proj（24 层都有） |
+| 512×1×1 | (2048, 512) | self_attn.k_proj / v_proj（6 层 full attn ×2） |
+| 3072×1×1 | (2048, 3072) | GDN.in_proj 拆 4 块 (q/k/v/z 各 2048) OR MLP gate/up 拆 2 块 (6144/2) |
+| 62080×1×1 | (2048, 62080) | lm_head 拆 4 块（vocab=248320/4） |
+| 1280×1×1 | (?, 1280) | 未知（推测 vision encoder 或 GDN partial） |
+
+### 21.3 量化 ROI 排名（如果将来有更好量化方案）
+
+| 组件 | 形状 | GEMV calls | 量化收益 |
+|---|---|---|---|
+| q_proj + o_proj + GDN.out_proj | (2048, 2048) | 41,598 | ⭐⭐⭐⭐⭐ 最高 |
+| k_proj + v_proj | (2048, 512) | 55,464 | ⭐⭐⭐⭐ |
+| GDN.in_proj | (2048, ~8224) | 55,464 | ⭐⭐⭐ 难（含 b/a） |
+| MLP gate/up/down | (2048, 6144) | ~100k (推测) | ⭐⭐⭐ |
+| lm_head | (2048, 62080) | 2,321 | ⭐⭐ 频次低 |
+
+## 22. DEEPGEMM 状态确认
+
+### 22.1 关键源码定位
+
+```python
+# /usr/local/lib/python3.12/site-packages/sglang/srt/environ.py
+SGLANG_SAIL_DEEPGEMM_DENSE = EnvBool(True)   # 默认 True
+SGLANG_SAIL_DEEPGEMM_MOE = EnvBool(True)     # 默认 True
+
+# /usr/local/lib/python3.12/site-packages/sglang/srt/layers/quantization/w8a8_int8.py:292
+if envs.SGLANG_SAIL_DEEPGEMM_DENSE.get() and _is_ppu and bias is None:
+    # 走 DeepGEMM 路径
+
+# /usr/local/lib/python3.12/site-packages/sglang/srt/layers/quantization/unquant.py:134
+class UnquantizedLinearMethod(LinearMethodBase):
+    def apply(self, layer, x, bias=None):
+        ...
+        return F.linear(x, layer.weight, bias)  # bf16 默认走 PyTorch F.linear → cutlass bf16 GEMV
+```
+
+### 22.2 结论
+
+**❌ G 组 (bf16) 不使用 DEEPGEMM**
+
+G 组 bf16 + UnquantizedLinearMethod 路径直接调 `F.linear()` → cutlass bf16 GEMV（`gemvt_op<cutlass::bfloat16_t>`）。
+
+DeepGEMM 触发条件（缺一不可）：
+1. `--quantization w8a8_int8`
+2. `_is_ppu`
+3. Linear 无 bias
+4. `SGLANG_SAIL_DEEPGEMM_DENSE=True`（默认 True，但仅在量化路径生效）
+
+即使切到 INT8，DeepGEMM 也只覆盖部分 GEMV（lm_head 带 bias + GDN.in_proj 的 b/a 分量 仍走 cutlass bf16 → 2.7% 残留）。
+
+## 23. 工作记录（git 初始化）
+
+由于工作仓库无法持久保留，把整个工作流程固化下来：
+
+### 23.1 已固化文件
+
+```
+docs/
+├── 00_OVERVIEW.md                  # 总览
+├── 01_ENVIRONMENT.md               # 镜像/硬件/版本/模型/数据集
+├── 01b_ENVIRONMENT_SETUP.md        # 环境调通全过程（最耗时阶段）
+├── 02_DISCOVERY.md                 # 按时间顺序的探索过程
+├── 03_KEY_FINDINGS.md              # 11 个关键技术发现
+├── 04_PROFILE.md                   # asys 算子 profile
+├── 05_FAILED_EXPERIMENTS.md        # 11 个失败/否决实验
+├── 06_FINAL_CONFIG.md              # 最终推荐配置 + 启动脚本
+├── 07_PROFILE_TO_KERNEL_MAP.md     # GEMV → 模型组件完整映射
+└── 08_REPRODUCE.md                 # 完整复现指南
+```
+
+### 23.2 git 配置
+
+```bash
+git init
+git config user.name "DNDX Participant"
+git config user.email "participant@dndx.local"
+git add .gitignore docs/ EXPERIMENT.md evaluation_wrapper.py benchmark_public.py README.md requirements.txt
+git commit -m "v1.2: G 组配置 + 完整工作记录（INT8/投机解码/算子 profile 全部否决）"
+```
+
+### 23.3 gitignore 策略
+
+提交：源码、文档、profile CSV、benchmark JSON
+忽略：
+- 90MB+ 大 .asysrep 文件
+- 377MB hggc_kern_exec_trace CSV（按需重新生成）
+- sglang 启动日志
+- 模型权重、量化包（按规则不能提交）

@@ -1,0 +1,14 @@
+[Asight]: Attach executed.
+
+[Asight]: The current collecting environment is PPU
+[Asight]: CPU sampling is disabled because Ftrace is not available.
+[Asight]: CPU backtrace is disabled because Perf is not available.
+[Asight]: Start trace service, this may take a while...
+[Asight]: Attached to application, start profiling.
+[Asight]: Collecting data...
+[Asight]: The duration time you set has expired(duration: 25000 ms). Stop tracing.
+
+[Asight]: Processing final trace data, this may take a while... 0%                                                                       [Asight]: Processing final trace data finish.
+Processing [>                                                                     ] 0 %Processing [======================================================================] 100 %
+[Asight]: Trace written into the output file: /mnt/workspace/dndx_participant-v1.2/profile_g_full.asysrep
+
