@@ -260,6 +260,40 @@ sglang DeepGEMM 是直接用 int8 权重 + dynamic per-token scale 算，结果�
 
 **当前决策**：MIXED 暂时不上竞赛。
 
+### 5.4 实测：sglang 0.5.10 加载 MIXED 直接 AssertionError（2026-08-15）
+
+```
+===== MIXED safetensors 实际 dtype 分布 =====
+  bfloat16: 172 tensors (norms, BF16 linear, visual)
+  int8:      58 tensors (per-channel INT8 linear)
+  uint8:     34 tensors ← MXFP4 实际以 uint8 packed 形式存储
+  float32:   18 tensors (A_log, dt_bias 等)
+
+===== sglang 启动失败 =====
+File "sglang/srt/layers/linear.py", line 735, in weight_loader
+    assert param_data.shape == loaded_weight.shape
+AssertionError
+
+原因：MXFP4 是 4-bit packed，每 byte 含 2 个值。
+     Linear layer 期望 2048×6144=12,582,912 个 bf16 值
+     safetensors 里只有 6,291,456 个 uint8（每个 unpack 成 2 个 MXFP4）
+     shape (2048, 6144) vs (2048, 3072) → 不匹配
+```
+
+### 5.5 sglang 0.5.10 量化方案清单（验证结论）
+
+| 方法 | PPU 可用？ | 备注 |
+|---|---|---|
+| `fp8` / `mxfp8` | ✓ | INT8 替代 |
+| `blockwise_int8` | ✓ | 块量化 |
+| `w8a8_int8` | ✓（DeepGEMM） | **INT8 路线唯一可行** |
+| `w8a8_fp8` | ✓ | FP8 W8A8 |
+| `mxfp4` | ❌ 仅 `is_cuda()` 或 `is_hip()` | PPU 上不在注册表 |
+| `mixed_precision_w4` | 注册但**不匹配 MIXED 格式** | W4 + INT8 混合，MXFP4 块缩放在 PPU 上无 kernel |
+| `compressed-tensors` | ❌ cutlass int8_scaled_mm 未实现 | 强制走 DeepGEMM |
+
+**结论**：sglang 0.5.10 PPU 上**没有任何路径**能识别 MIXED 的 MXFP4+INT8+BF16 三段混合格局。必须等 sglang-for-SAIL v0.5.13 或更新。
+
 ---
 
 ## 6. 关键文件清单（**已修正路径**）
@@ -305,3 +339,15 @@ sglang DeepGEMM 是直接用 int8 权重 + dynamic per-token scale 算，结果�
 | 评测机持久化缓存跨次复测获利 | ✓ 没做 |
 
 **本次 0% 精度不能上竞赛** — 必须把 garbled output 修好才能切换到 INT8。
+
+---
+
+## 9. 验证记录时间线
+
+- **2026-08-15 02:30** — qlean 生成 INT8 + MIXED 完成
+- **2026-08-15 02:39** — preprocessor_config.json 修复（Pil → Fast）
+- **2026-08-15 02:43** — INT8 sglang 启动成功（DeepGEMM 路径）
+- **2026-08-15 02:44** — 50 题 INT8 跑完，0/50 解析成功
+- **2026-08-15 02:51** — MIXED sglang 启动失败，AssertionError（uint8 shape 不匹配）
+- **2026-08-15 02:55** — 验证 sglang 0.5.10 PPU 不支持 `mxfp4`、`mixed_precision_w4`
+- **2026-08-15 03:00** — INT8_strategy.md 重写并提交 (57a2f36)
