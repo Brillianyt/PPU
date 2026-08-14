@@ -351,3 +351,86 @@ AssertionError
 - **2026-08-15 02:51** — MIXED sglang 启动失败，AssertionError（uint8 shape 不匹配）
 - **2026-08-15 02:55** — 验证 sglang 0.5.10 PPU 不支持 `mxfp4`、`mixed_precision_w4`
 - **2026-08-15 03:00** — INT8_strategy.md 重写并提交 (57a2f36)
+- **2026-08-15 03:15** — MIXED 死路追加 (932857f)
+- **2026-08-15 03:30** — 排查 scale shape (用户提示) → 排除（kernel 只 assert shape[0]）
+- **2026-08-15 03:35** — 排查 activation per_token → 排除（`per_token_quant_int8` 完整实现）
+- **2026-08-15 03:40** — 验证 scale 数值正确（误差 < 0.001%，对照 BF16）
+- **2026-08-15 03:45** — 直接调用 `deep_gemm.gemm_int8_int8_bf16_nt` 用 qlean 权重 → **kernel 输出精度 OK（diff=0.012，标准 INT8 舍入）**
+- **2026-08-15 03:50** — 确认 sglang 走 `compressed-tensors` 路径（HF config 写的）而非 `w8a8_int8`
+- **2026-08-15 03:55** — **核心发现：qlean 配方 vs sglang 模型结构的不兼容**（见 §10）
+
+---
+
+## 10. 终极根因：qlean 配方 vs sglang fused layers 不兼容
+
+### 10.1 qlean 的 ignore 列表
+
+qlean 出于精度保护，对以下层**保留 BF16**：
+
+| 层 | 原因 |
+|---|---|
+| `self_attn.v_proj` | AMQ Fig 12 V 层最敏感 |
+| `linear_attn.in_proj_qkv` | q_k+q_v 重操作符 |
+| `linear_attn.in_proj_z` | q_j 重操作符 |
+| `linear_attn.conv1d` | 3D 张量无法量化 |
+| `mlp.gate_proj` | 部分实现需精度 |
+
+### 10.2 sglang 模型对这些层做了什么
+
+sglang 的 `qwen3_5.py` **硬合并**这些 shard：
+
+```python
+"qkv_proj": ["q_proj", "k_proj", "v_proj"],       # self-attn
+"gate_up_proj": ["gate_proj", "up_proj"],         # MLP
+"in_proj_qkvz": ["in_proj_qkv", "in_proj_z"],     # linear-attn
+"in_proj_ba": ["in_proj_b", "in_proj_a"],         # linear-attn
+```
+
+合并后：
+- `qkv_proj` = 4096+512+512 = 5120 输出通道（v_proj 256 通道在内）
+- `in_proj_qkvz` = 6144+2048 = 8192 输出通道
+- `gate_up_proj` = 6144×2 = 12288 输出通道
+
+### 10.3 sglang 的 `should_ignore_layer` 逻辑
+
+```python
+# 对 fused layer，要求所有 shard scheme 一致
+for shard_name in shard_names:
+    should_ignore_shard = check_equal_or_regex_match(layer_name=shard_name, targets=ignore)
+    if should_ignore_layer is None:
+        should_ignore_layer = should_ignore_shard
+    elif should_ignore_shard != should_ignore_layer:
+        raise ValueError(...)  # 部分量化 vs 部分 BF16 → 矛盾
+```
+
+qlean 配方要 `v_proj` BF16、`q_proj/k_proj` INT8 → 矛盾 → 整 fused layer 无法决定。
+
+### 10.4 当前的"全量化"行为
+
+观察到 sglang 没抛 ValueError，推断它走的是"q/k INT8 + v 强制 INT8"路径（即把 v_proj 从 BF16 **重新量化**为 INT8）。这丢失了 v_proj 的精度保护，加上可能的 dtype 不匹配处理 bug → 整个模型精度塌方到 0%。
+
+### 10.5 三条出路
+
+| 方案 | 精度 | INT8 收益 | 实现难度 |
+|---|---|---|---|
+| (A) 全量化（含 v_proj/in_proj_qkvz 等） | -5 ~ -10 pp | **最大化** | 改 qlean recipe 重跑 |
+| (B) fused layer 全 BF16 | ±0 pp | 最小化 | config.json 加 ignore |
+| (C) sglang 支持 per-shard fused quantization | ±0 pp | 最大化 | 改 sglang 源码 |
+
+**当前结论**：(B) 不可接受（INT8 没意义）。(C) 改动过大。(A) 是唯一可行的实际路径——**接受精度损失换可用加速**。
+
+### 10.6 备选 (A) 的具体 qlean recipe 修改
+
+把 ignore 列表减到最小：
+```yaml
+ignore:
+  - "re:.*lm_head"
+  - "re:.*embed_tokens"
+  - "re:.*norm.weight$"
+  - "re:.*linear_attn\\.A_log$"
+  - "re:.*linear_attn\\.dt_bias$"
+  # 删除：v_proj, in_proj_qkv, in_proj_z, gate_proj, conv1d
+  # conv1d 是 3D 张量，qlean 工具可能仍会跳过
+```
+
+预期：accuracy 从 0.85 → 0.75-0.80，TTFT 持平或略低，throughput 显著提升（多 70+ 层进 INT8 GEMM）。
