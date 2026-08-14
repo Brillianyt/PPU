@@ -169,7 +169,7 @@ python3 benchmark_public.py \
     --backend transformers
 ```
 
-**注意**：默认路径走 compressed-tensors 框架，会**每个 forward pass 反量化权重**，在某些设备上很慢。如果要加速，可以用 `/mnt/workspace/scripts/bench_quant.py` 一次性把 INT8 反量化到 BF16 然后替换进 BF16 模型（速度 ≈ BF16）。
+**注意**：默认路径走 compressed-tensors 框架，在Sglang框架内注意走DeepGEEM路线，会**每个 forward pass 反量化权重**，在某些设备上很慢。如果要加速，可以用 `/mnt/workspace/scripts/bench_quant.py` 一次性把 INT8 反量化到 BF16 然后替换进 BF16 模型（速度 ≈ BF16）。
 
 ```bash
 python3 /mnt/workspace/scripts/bench_quant.py \
