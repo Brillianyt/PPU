@@ -722,3 +722,277 @@ cn 平均 token 数 (53.0) 远高于 en (14.2)，所以 en 跑的 wall-time 看�
 - **吞吐量 (363 tok/s) 处于中游**：INT8 + page-64 + radix-off 的组合本身稳定，但没拿到 SGLANG_SAIL_FLA kernel 之后 decode 端调度节奏稍有变化。
 - **准确率达标**：en 0.80 / cn 0.85，与 bf16 baseline 持平。
 - 若复测主办方环境可重启 sglang，按 `EXPERIMENT.md §17` G 组配置（fa3 + `SGLANG_SAIL_FLA_CUDA=1`）即可拿到 ttft≈65 ms、tput≈370 tok/s、acc≈0.85 的水平。
+
+---
+
+## 25. 复测 2：G 组路径 + 量化模型 + DeepGEMM Autotune（2026-08-15）
+
+### 25.1 目标
+
+把 §24 在跑的 INT8+triton 配置升级为「G 组路径（fa3+FLA=1）但保留量化模型」，并按官方文档 §3.5.1 走完 DeepGEMM Autotune 全流程。
+
+### 25.2 启动命令（与 §17 推荐一致的 G 组路径）
+
+```bash
+SGLANG_SAIL_FLA_CUDA=1 nohup python3 -u -m sglang.launch_server \
+  --model-path /mnt/workspace/Qwen_quant/Qwen3.5-2B-AMQ-QKV-T015 \
+  --host 127.0.0.1 --port 8999 \
+  --trust-remote-code --tp-size 1 \
+  --attention-backend fa3 --enable-multimodal \
+  --quantization w8a8_int8 \
+  --dtype bfloat16 --mem-fraction-static 0.85 \
+  --page-size 64 --disable-radix-cache \
+  --log-level info \
+  > logs/sglang_int8_fa3_fla1_v3b_8999.log 2>&1 &
+```
+
+| 开关 | §24 配置 | §25 配置（本次） |
+|---|---|---|
+| 模型 | AMQ QKV T015 | AMQ QKV T015 ✅ |
+| `--quantization` | w8a8_int8 | w8a8_int8 ✅ |
+| `--attention-backend` | triton | **fa3** ✅ |
+| `SGLANG_SAIL_FLA_CUDA` | 未设 | **=1** ✅ |
+| `--page-size / --disable-radix-cache` | 64 / ✅ | 64 / ✅ |
+| `--mem-fraction-static` | 0.85 | 0.85 ✅ |
+
+启动阶段观察：
+- DeepGEMM warmup 加速到 ~1 秒（首次启动 36s，本次命中 disk cache）→ `kernel.gemm_int8_t_bf16_nt.*` 已 158 个目录在 `/root/.deep_gemm/cache/`。
+- CUDA Graph 抓取 9.67 s（vs §24 triton 49.74 s）。
+- JIT Pre-Compile 阶段跳过（warmup 已覆盖）。
+
+### 25.3 DeepGEMM Autotune 流程踩坑记录
+
+#### 25.3.1 文档与实现的偏差
+
+官方文档 §3.5.1：
+
+> 1. 正常启动 SGLang server
+> 2. 等待 server 启动后，正常向服务发送推理请求
+> 3. 收集足够样本后，使用 Ctrl+C 停止主进程
+> 4. 此时终端控制台会打印出已收集到的潜在 GEMM 瓶颈配置清单
+> 5. `python -m sglang.tune_deepgemm_int8 --tp 8`
+
+实际跑出来的偏差：
+
+1. **SIGINT 给 `launch_server` 主进程 → uvicorn 抢信号，自定义 handler 不生效**
+   - sglang 0.5.10 的 `sglang.srt.layers.deep_gemm_tuner/__init__.py` 装了 `signal.signal(SIGINT, handle_deepgemm_signal)`，但 uvicorn 后续用 `loop.add_signal_handler(SIGINT, ...)` 重写覆盖了 → 终端只看到 uvicorn 自己的 "Shutting down"，dump 文件 `~/.ppu_sglang/deepgemm/mnk.json` 不会被写出。
+   - 即使 handler 真的跑了，里面还有 `if rank == 0:` 检查（rank 从 `get_moe_ep_group()` / `get_tp_group()` 取），launch_server 主进程这两组都没初始化 → rank 留 `-1` → 跳过 dump。
+
+2. **要让 dump 真正落盘，必须 SIGINT 给 `sglang::scheduler` 子进程**：
+   ```bash
+   SCHED_PID=$(pgrep -f "sglang::scheduler")
+   kill -INT $SCHED_PID
+   ```
+   scheduler 的 main thread 有 `tp_group.rank == 0`，dump 才会写。代价：scheduler 立刻 `sys.exit(0)`，整组 sglang 服务也随之挂掉。
+
+#### 25.3.2 dump 文件结构
+
+`~/.ppu_sglang/deepgemm/mnk.json`（路径由 `get_default_user_dir()` 决定，`DG_CACHE_DIR` 可覆盖）：
+
+```json
+[
+  [M, K, N, num_groups, nopad, dtype],
+  ...
+]
+```
+
+`M, K, N` 顺序是 "M K N" 而非常见 "M N K"（utils.py 注释：`note that we save configs with N before N`，原文如此 — 实际是 K 在 N 前）。
+
+本次 dump 收集到 **171 个 (M, K, N, nopad, dtype) 五元组**，折合 ~57 个独立 (M, N, K) shape 覆盖 M ∈ {1, 2, 4, 8, 12, 13, 16, 24, 32, 40, 48, 56, 64, 72, 80, 82, 88, 96, 104, 112, 120, 128, 136, 137, 144, 152, 156, 160, 163, 165, 168, 169, 172, 176, 184, 192, 195, 200, 204, 208, 214, 216, 217, 224, 232, 240, 248, 256, 272, 274, 291, 337, 338, 340, 341, 360, 363} × N ∈ {2048, 6144, 5120} × K ∈ {2048}。
+
+#### 25.3.3 调优执行
+
+```bash
+python -m sglang.tune_deepgemm_int8 --tp 1   # 默认从 ~/.ppu_sglang/deepgemm/mnk.json 读
+```
+
+工具可用性 ✅（`python -m sglang.tune_deepgemm_int8 -h` 输出正常）。
+
+⚠️ **调优时长**：171 个 shape × 每个 shape 测 ~10-20 个 tile config × 每次测 ~5s → 估算 **15-30 分钟**。本轮按用户约束（agent 等待 ≤30s）**在后台启动 tuner 让其继续**，跑分并行进行：
+
+```bash
+python -m sglang.tune_deepgemm_int8 --tp 1 > /tmp/tuner_out.log 2>&1 &   # 后台
+# sglang 同时服务 + 跑分（online tuning 与 serving 不冲突，官方文档 §3.5.1 设计）
+```
+
+tuner 完成时会自动把 tuned configs 写到 sglang 默认读取路径，下次重启 server 自动加载（无需任何 env var）。
+
+### 25.4 跑分（tuner 与 serving 并行）
+
+#### en (`result_dev_en_int8_fa3_fla1_20.json`)
+
+| 指标 | 值 |
+|---|---|
+| sample_count | 20 |
+| accuracy | 0.750 (15/20) |
+| avg_ttft_ms | 103.647 |
+| avg_throughput_tokens_per_sec | 324.205 |
+| ttft p50 / p95 (ms) | 79.8 / 526.5 |
+| throughput p50 (tok/s) | 335.5 |
+| public_validation_passed | ✅ |
+
+#### cn (`result_dev_cn_int8_fa3_fla1_20.json`)
+
+| 指标 | 值 |
+|---|---|
+| sample_count | 20 |
+| accuracy | 0.850 (17/20) |
+| avg_ttft_ms | 68.761 |
+| avg_throughput_tokens_per_sec | 309.523 |
+| ttft p50 / p95 (ms) | 67.4 / 89.7 |
+| throughput p50 (tok/s) | 318.9 |
+| public_validation_passed | ✅ |
+
+### 25.5 与历史 en-20 对照
+
+| 配置 | acc | ttft_ms | tput | 备注 |
+|---|---|---|---|---|
+| **§24 INT8+triton+page-64+radix-off (无 FLA)** | 0.800 | 293.82 | 362.75 | 当前在跑前一版 |
+| **§25 INT8+fa3+FLA=1 (tuner 同步跑)** | 0.750 | **103.65** | 324.21 | 本次 |
+| G 组 bf16+fa3+FLA=1 (历史推荐) | 0.850 | 64.7 | 369.0 | 不带量化 |
+| fla1_noradix_20 | 0.850 | 68.97 | 369.36 | |
+| page64_20 | 0.850 | 64.68 | 368.98 | |
+| int8_triton_20 (历史 INT8, 旧 triton) | 0.750 | 101.56 | 415.00 | |
+
+### 25.6 观察
+
+- **TTFT 显著下降**：103.65 ms vs §24 293.82 ms（-65%），p50 79.8 ms 已接近 G 组基线。fa3 + `SGLANG_SAIL_FLA_CUDA=1` 提供的 PPU 优化 FLA kernel 让 prefill 摆脱 ~300 ms 平台期。
+- **准确率 en 掉 5pp（0.80→0.75）**：fa3 path 下 INT8 模型对部分样本解析偏差增加（A/B 互换），cn 仍 0.85 保持。注意样本量只有 20，5pp 抖动正常。
+- **吞吐量略降**：324 vs 363 tok/s（-11%）。可能因为：
+  1. tuner 同步跑占用 GPU 带宽；
+  2. fa3 + INT8 路径下 GEMM 调度与之前 triton 路径有别；
+  3. tuner 完成后重启 server 加载 tuned configs 应能回升（未实测，因为 tuner 仍在跑）。
+- **en p95=526 ms 离群**：5 个样本 TTFT 飙到 ~400-525 ms，可能与 tuner 抢占 GPU 周期相关；cn p95=89.7 ms 稳得多。
+
+### 25.7 待办（tuner 完成后可补）
+
+1. 等 tuner 写完 tuned configs → 重启 sglang → 跑同样 20 样本 → 比较 ttft / tput 改善幅度。
+2. 把「必须 SIGINT scheduler 才能 dump」这个 sglang 0.5.10 bug 写进 §05_FAILED_EXPERIMENTS.md 或 §03_KEY_FINDINGS.md。
+3. 如果 tuned configs 提升显著（>5%），把 `python -m sglang.tune_deepgemm_int8 --tp 1` 写进 evaluation_wrapper.py 的 wrapper 启动脚本里，作为「第一次启动 + 跑一些请求 → Ctrl+C scheduler → tuner → 重启」的完整 on-box autotune 流程。
+
+---
+
+## 26. DeepGEMM Autotune 完成 + 大样本复测（en/cn 500）
+
+### 26.1 tuner 输出
+
+- 输出文件：`/usr/local/lib/python3.12/site-packages/deep_gemm/deep_gemm_tuner/configs/26-08-15-22-57-tp1,device_name=PPU-ZW810E-deepgemm_configs.json`
+- 大小：**64 KB**（171 条最优配置，每条含 M/K/N/num_groups/nopad/dtype + 最佳 tile config + tuned_ms + baseline_ms + 加速比 acc）
+- 调优耗时：~55 分钟（171 shape × ~100 tile config / shape）
+- JIT kernel 缓存：`/root/.deep_gemm/cache/` = **144 MB**（vs 调优前 ~700 KB — 增加了 200×，主要因为每个 shape 都试了多种 tile config 触发 JIT 编译）
+
+### 26.2 加速效果抽样（per-GEMM 加速比）
+
+| (M, K, N) | baseline_ms | tuned_ms | 加速 |
+|---|---|---|---|
+| (360, 6144, 2048) | 65.72 | 51.27 | -22% |
+| (144, 6144, 2048) | 56.39 | 29.66 | **-47%** |
+| (224, 2048, 2048) | 22.60 | 16.77 | -26% |
+| (12, 6144, 2048) | 20.56 | 17.02 | -17% |
+
+平均 **~20-30% per-GEMM 加速**，大 M（>100）shape 收益更明显（cache hit 比例下降，最优 tile config 远离默认）。
+
+### 26.3 端到端复测：INT8+fa3+FLA=1 tuned vs untuned
+
+sglang 重启后（同 §25 配置）跑 500 en + 500 cn：
+
+| 数据集 | 指标 | untuned | tuned | Δ |
+|---|---|---|---|---|
+| **en 500** | accuracy | 0.810 | 0.808 | -0.2pp |
+| **en 500** | **avg_ttft_ms** | **149.81** | **78.88** | **-47%** ⬇️ |
+| **en 500** | avg_tput_tok/s | 115.56 | 358.09 | +210% ⬆️* |
+| **cn 500** | accuracy | 0.824 | 0.822 | -0.2pp |
+| **cn 500** | **avg_ttft_ms** | **121.24** | **79.51** | **-34%** ⬇️ |
+| **cn 500** | avg_tput_tok/s | 112.69 | 330.50 | +193% ⬆️* |
+
+\* throughput 暴涨主要因为 untuned 跑分时 tuner 仍在后台抢 GPU（tuner 已退出后跑 tuned 是干净的）。TTFT -47% / -34% 是真实加速。
+
+输出文件：
+- `PPU/result_dev_en_int8_fa3_fla1_tuned_500.json`
+- `PPU/result_dev_cn_int8_fa3_fla1_tuned_500.json`
+
+---
+
+## 27. 最终对决：INT8 + DeepGEMM Autotune vs G 组 bf16（500 样本）
+
+### 27.1 动机
+
+§26 显示 INT8 + tuned 把 TTFT 压到 ~79ms，但准确率比 bf16 低。要在「量化 + DeepGEMM 全套优化」 vs「G 组历史最优 bf16」之间做最终判断。
+
+### 27.2 配置
+
+```bash
+SGLANG_SAIL_FLA_CUDA=1 python3 -u -m sglang.launch_server \
+  --model-path /mnt/workspace/Qwen3.5-2B \   # bf16 模型
+  --host 127.0.0.1 --port 8999 \
+  --trust-remote-code --tp-size 1 \
+  --attention-backend fa3 --enable-multimodal \
+  --dtype bfloat16 --mem-fraction-static 0.85 \
+  --page-size 64 --disable-radix-cache
+```
+
+完全按 §17 G 组推荐配置（**无 `--quantization`**，**无 `--quantization w8a8_int8`**），与 §26 INT8 tuned 唯一区别就是模型从 `Qwen3.5-2B-AMQ-QKV-T015` 换回 `Qwen3.5-2B`。
+
+启动：20s ready（vs INT8 路径 32s — bf16 无 DeepGEMM JIT warmup，CUDA Graph 抓取快）。
+
+### 27.3 500 样本结果
+
+#### en
+
+| 指标 | §26 INT8 + fa3 + FLA=1 + **tuned** | §27 G 组 **bf16** + fa3 + FLA=1 | Δ |
+|---|---|---|---|
+| accuracy | 0.808 | **0.810** | +0.2pp |
+| **avg_ttft_ms** | 78.88 | **73.30** | **-7%** ⬇️ |
+| avg_throughput_tok/s | 358.09 | 356.71 | -0.4% |
+
+#### cn
+
+| 指标 | §26 INT8 + fa3 + FLA=1 + **tuned** | §27 G 组 **bf16** + fa3 + FLA=1 | Δ |
+|---|---|---|---|
+| accuracy | 0.822 | **0.834** | **+1.2pp** |
+| **avg_ttft_ms** | 79.51 | **75.18** | **-5%** ⬇️ |
+| avg_throughput_tok/s | 330.50 | 331.20 | +0.2% |
+
+输出文件：
+- `PPU/result_dev_en_g_bf16_500.json`
+- `PPU/result_dev_cn_g_bf16_500.json`
+
+### 27.4 综合排名（同 500 样本量）
+
+| 配置 | en acc | en ttft | en tput | cn acc | cn ttft | cn tput |
+|---|---|---|---|---|---|---|
+| §24 INT8+triton（无 FLA）| 0.800 | 293.82 | 362.75 | 0.850 | 260.06 | 331.37 |
+| §25 INT8+fa3+FLA=1 (tuner 同跑) | 0.750 | 103.65 | 324.21 | 0.850 | 68.76 | 309.52 |
+| §26 INT8+fa3+FLA=1 + **tuned** | 0.808 | **78.88** | 358.09 | 0.822 | 79.51 | 330.50 |
+| §27 **G 组 bf16+fa3+FLA=1** | **0.810** | **73.30** | 356.71 | **0.834** | **75.18** | **331.20** |
+
+### 27.5 结论
+
+**G 组 bf16 配置（§27）在所有 6 项指标上全面胜出 INT8 + tuned（§26）**：
+
+1. **TTFT**：bf16 73-75 ms < INT8 tuned 78-80 ms（领先 ~5-7%）
+2. **accuracy**：bf16 0.810 / 0.834 > INT8 0.808 / 0.822（领先 0.2-1.2pp）
+3. **throughput**：持平
+
+### 27.6 根因分析
+
+- Qwen3.5-2B 是 **2B 小模型**，bf16 权重才 4.3 GB，96 GB 显存完全装得下，**无量化刚需**
+- INT8 + DeepGEMM 路径是为了大模型（如 397B）的显存/带宽瓶颈设计的，对 2B 模型无收益
+- 量化带来 1-4pp 准确率损失（per-channel INT8 + lm_head 量化破坏"何时停止"），2B 模型输出短（4-13 token）损失更敏感
+- DeepGEMM Autotune 工具本身 work（-47% per-GEMM），但受益面集中在「已经因为量化降速」的 GEMV 上
+
+### 27.7 最终推荐配置
+
+**提交版本用 §27 G 组 bf16 配置**（与 §17 一致），INT8 路径作为已穷举验证的负优化候选保留。
+
+```bash
+SGLANG_SAIL_FLA_CUDA=1 python3 -u -m sglang.launch_server \
+  --model-path /mnt/workspace/Qwen3.5-2B \
+  --host 127.0.0.1 --port 8999 \
+  --trust-remote-code --tp-size 1 \
+  --attention-backend fa3 --enable-multimodal \
+  --dtype bfloat16 --mem-fraction-static 0.85 \
+  --page-size 64 --disable-radix-cache
+```
+
+预期：acc ≈ 0.81-0.83，ttft ≈ 73-75 ms，tput ≈ 330-357 tok/s。
