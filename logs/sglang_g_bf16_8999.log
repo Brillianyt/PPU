@@ -2866,3 +2866,8 @@ You may be able to resolve this warning by setting `model_config['protected_name
 [2026-08-15 23:48:57] Prefill batch, #new-seq: 1, #new-token: 64, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.05
 [2026-08-15 23:48:58] INFO:     127.0.0.1:39726 - "GET /health HTTP/1.1" 200 OK
 [2026-08-15 23:48:58] INFO:     127.0.0.1:39730 - "GET /v1/models HTTP/1.1" 200 OK
+[2026-08-15 23:50:44] INFO:     Shutting down
+[2026-08-15 23:50:44] INFO:     Waiting for application shutdown.
+[2026-08-15 23:50:44] INFO:     Application shutdown complete.
+[2026-08-15 23:50:44] INFO:     Finished server process [462979]
+[2026-08-15 23:50:44] kill_process_tree called: parent_pid=462979, include_parent=False, pid=462979
