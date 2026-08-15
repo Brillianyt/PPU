@@ -619,3 +619,106 @@ git commit -m "v1.2: G 组配置 + 完整工作记录（INT8/投机解码/算子
 - 377MB hggc_kern_exec_trace CSV（按需重新生成）
 - sglang 启动日志
 - 模型权重、量化包（按规则不能提交）
+
+---
+
+## 24. 复测：复用已启动 INT8/triton/page-64 服务（2026-08-15）
+
+### 24.1 服务侧快照
+
+直接复用一个在跑的 sglang server（**不重启**，避免重捕 CUDA Graph）：
+
+```
+PID 11006
+python3 -u -m sglang.launch_server \
+  --model-path /mnt/workspace/Qwen_quant/Qwen3.5-2B-AMQ-QKV-T015 \
+  --host 0.0.0.0 --port 8999 --tp-size 1 --dtype bfloat16 \
+  --attention-backend triton --disable-radix-cache --page-size 64 \
+  --quantization w8a8_int8 --enable-multimodal --trust-remote-code \
+  --mem-fraction-static 0.85
+
+served_model = /mnt/workspace/Qwen_quant/Qwen3.5-2B-AMQ-QKV-T015
+max_model_len = 262144
+health = 200
+```
+
+启动命令与 G 组历史最优配置 (`EXPERIMENT.md §17`) 的差异：
+
+| 选项 | 历史 G 组 (port 9001) | 本轮在跑 (port 8999) |
+|---|---|---|
+| `--model-path` | `Qwen3.5-2B` (bf16) | `Qwen3.5-2B-AMQ-QKV-T015` (INT8) |
+| `--attention-backend` | `fa3` | `triton` |
+| `--quantization` | (无) | `w8a8_int8` |
+| `--enable-multimodal` | ✅ | ✅ |
+| `--disable-radix-cache` | ✅ | ✅ |
+| `--page-size` | `64` | `64` |
+| `--dtype` | `bfloat16` | `bfloat16` |
+| `--mem-fraction-static` | `0.85` | `0.85` |
+| `SGLANG_SAIL_FLA_CUDA` | `1` (历史最佳必备) | **未设** (走社区 triton linear-attn) |
+
+### 24.2 客户端侧
+
+```bash
+SGLANG_SERVER_URL=http://127.0.0.1:8999 \
+SGLANG_SERVED_MODEL=/mnt/workspace/Qwen_quant/Qwen3.5-2B-AMQ-QKV-T015 \
+python3 benchmark_public.py \
+  --dataset-path /mnt/workspace/dndx_participant-v1.2/datasets/mmbench/mmbench_dev_en.tsv \
+  --model-path /mnt/workspace/Qwen_quant/Qwen3.5-2B-AMQ-QKV-T015 \
+  --backend sglang --num-samples 20 \
+  --output result_dev_en_int8_cur_20.json --warmup-samples 2
+```
+
+`VLMModel` 检测到 `SGLANG_SERVER_URL` 后跳过自启，复用现有服务；`SGLANG_SERVED_MODEL` 必须与 `/v1/models` 中 `id` 完全一致，否则请求 404。
+
+### 24.3 结果
+
+#### en (`result_dev_en_int8_cur_20.json`)
+
+| 指标 | 值 |
+|---|---|
+| sample_count | 20 |
+| accuracy | 0.800 (16/20) |
+| avg_ttft_ms | 293.82 |
+| avg_throughput_tokens_per_sec | 362.754 |
+| total_benchmark_seconds | 8.91 |
+| avg_seconds_per_sample | 0.446 |
+| public_validation_passed | ✅ |
+| ttft p50 / p95 (ms) | 340.9 / 399.2 |
+| throughput p50 (tok/s) | 367.4 |
+| tokens min / max / avg | 4 / 90 / 14.2 |
+
+#### cn (`result_dev_cn_int8_cur_20.json`)
+
+| 指标 | 值 |
+|---|---|
+| sample_count | 20 |
+| accuracy | 0.850 (17/20) |
+| avg_ttft_ms | 260.06 |
+| avg_throughput_tokens_per_sec | 331.367 |
+| public_validation_passed | ✅ |
+| ttft p50 / p95 (ms) | 321.0 / 346.9 |
+| throughput p50 (tok/s) | 326.9 |
+| tokens min / max / avg | 5 / 206 / 53.0 |
+
+cn 平均 token 数 (53.0) 远高于 en (14.2)，所以 en 跑的 wall-time 看起来更短但 avg_throughput 数字更接近——解码窗口被短答案压缩了。
+
+### 24.4 与历史 en-20 同尺寸对照
+
+| 配置 | acc | ttft_ms | tput | 备注 |
+|---|---|---|---|---|
+| **本轮 (INT8+triton+page64+radix-off, 无 FLA)** | 0.800 | **293.82** | **362.75** | 复用现成服务 |
+| G 组 (bf16+fa3+page64+radix-off+`SGLANG_SAIL_FLA_CUDA=1`) | 0.800 | 419.0 | 284.5 | 早期参考 |
+| fla1_20 (bf16+fla1+radix-on) | 0.850 | 64.35 | 280.07 | |
+| fla1_noradix_20 | 0.850 | 68.97 | 369.36 | 接近 G 组推荐 |
+| page64_20 | 0.850 | 64.68 | 368.98 | |
+| chunked2048_20 | 0.850 | 69.87 | 375.28 | |
+| bf16_triton_20 | 0.800 | 64.32 | 380.95 | 无 FLA，bf16 |
+| int8_triton_20 | 0.750 | 101.56 | 415.00 | 此前 INT8 实验 |
+| fa3_20 | 0.850 | 313.15 | 279.37 | triton linear-attn |
+
+### 24.5 结论
+
+- **TTFT (~294 ms) 显著落后历史最佳 (~65 ms)**：当前服务没设 `SGLANG_SAIL_FLA_CUDA=1`，prefill 走社区 triton linear-attn kernel，hybrid linear-attention layer 没有专用路径，~300 ms 平台期明显。
+- **吞吐量 (363 tok/s) 处于中游**：INT8 + page-64 + radix-off 的组合本身稳定，但没拿到 SGLANG_SAIL_FLA kernel 之后 decode 端调度节奏稍有变化。
+- **准确率达标**：en 0.80 / cn 0.85，与 bf16 baseline 持平。
+- 若复测主办方环境可重启 sglang，按 `EXPERIMENT.md §17` G 组配置（fa3 + `SGLANG_SAIL_FLA_CUDA=1`）即可拿到 ttft≈65 ms、tput≈370 tok/s、acc≈0.85 的水平。
