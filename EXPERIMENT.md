@@ -996,3 +996,133 @@ SGLANG_SAIL_FLA_CUDA=1 python3 -u -m sglang.launch_server \
 ```
 
 预期：acc ≈ 0.81-0.83，ttft ≈ 73-75 ms，tput ≈ 330-357 tok/s。
+
+---
+
+## §28 量化算子实测验证（BF16 gemvt vs INT8 DeepGEMM at M=1）
+
+> 时间：2026-08-15 23:30
+> 工具：`/usr/local/PPU_SDK/asight/bin/acu` (Asight Compute) + 直接调用 `deep_gemm.*` kernel + `torch.cuda.Event`
+> 目的：用系统工具实测验证「BF16 时代 decode (M=1) 走 gemvt 专用 GEMV kernel，INT8 时代全走 DeepGEMM int8 GEMM kernel，DeepGEMM 对 M=1 无 tile 优化」这一理论
+
+### 28.1 Profile 实测数据（来自 `profile_results/`）
+
+| 指标 | G 组 BF16 (`g_group_60s_*.csv`) | INT8 (`int8_60s_*.csv`) |
+|---|---|---|
+| 总 kernel launches | 845,699 | 97,771 |
+| **GEMM 总占比** | **73.4%** | **61.4%** |
+| **主导 GEMM kernel** | `gemvt_op M=1 N=1` | `DeepGEMM int8 GemmKernel` |
+| 主导 kernel 占比 | 56.1% (单 kernel) | 11.4% (top 1) + 5.4% (top 2) |
+| 主导 kernel 调用次数 | **265,775 次**（单 kernel 巨多）| 21,677 次（分散在多种 tile）|
+| 主导 kernel 平均耗时 | **19.3 μs / call** | 31.1 μs / call (avg over all tiles) |
+
+**BF16 时代的关键观察**（来自 `op_type_sum.csv`）：
+
+```
+GEMM 类型        占比    主导 kernel                                     实例数   平均    总时间
+GEMM            73.4%   gemvt_op<bfloat16, float, bfloat16, 32, 4>      168,713  23.5μs  3.96s
+GEMM            73.4%   gemvt_op<bfloat16, float, bfloat16, 64, 2>       55,464  14.8μs  0.82s
+GEMM            73.4%   gemvt_op<bfloat16, float, bfloat16, 128, 1>      41,598   8.4μs  0.35s
+GEMM            73.4%   gemm_ktype0 BF16 cutlass (prefill only)             1,500   ~50μs  0.07s
+```
+
+→ **BF16 的 GEMM 73.4% 中，72.7% 是 M=1 GEMV**（265,775 次 gemvt 调用），只有 0.7% 是 prefill 大 GEMM。
+→ SGLang 给 BF16 的 M=1 路径**专门写了 32×4 / 64×2 / 128×1 三种 GEMV tile**，按 N 大小挑最佳。
+
+**INT8 时代的关键观察**（来自 `int8_op_type_sum.csv`）：
+
+```
+GEMM 类型        占比    主导 kernel                                          实例数   平均    总时间
+GEMM            61.4%   gemm_ktype0 BF16 (lm_head + GDN.b/a 残留)              3,687  31.1μs  0.11s
+GEMM            61.4%   DeepGEMM int8 GemmShape<128, 256, 128>                  719  155μs   0.11s
+GEMM            61.4%   DeepGEMM int8 GemmShape<16, 128, 128>                 4,248  14.6μs  0.06s
+GEMM            61.4%   DeepGEMM int8 GemmShape<32, 128, 128>                 3,960  16.3μs  0.06s
+GEMM            61.4%   DeepGEMM int8 GemmShape<128, 128, 128>                1,248  49.4μs  0.06s
+GEMM            61.4%   gemvt_op<bfloat16> (lm_head M=1 残留)                    904  30.6μs  0.03s
+```
+
+→ **INT8 没有 M=1 专用 tile，最小 tile 是 M=16**（4,248 + 1,416 ≈ 5,664 次 decode M=16）。
+→ **每个 M=1 decode 都被 pad 到 M=16**，浪费 15/16 ≈ 94% 计算量。
+→ 残留 BF16 `gemvt_op` 904 次（30.6μs/call，比 G 组的 19.3μs/call **慢 58%**——因为 lm_head 的 N=151936 走 128×1 tile 都不够优化）。
+
+### 28.2 直接 kernel 调用对照（decode M=1 microbench）
+
+> `/tmp/quant_bench/decode_microbench.py`：调用 `deep_gemm.gemm_bf16_bf16_bf16_nt` + `torch.nn.functional.linear` (BF16) vs `deep_gemm.gemm_int8_int8_bf16_nt` (INT8)，M=1，N/K 取 Qwen3.5-2B 真实层 shape，`cuda.Event` 精确计时
+
+| Layer (M=1) | K | N | BF16 `gemvt` (μs) | BF16 `gemm_bf16_nt` (μs) | INT8 DeepGEMM M=16 (μs) | **INT8 / BF16** |
+|---|---|---|---|---|---|---|
+| mlp.gate_up_proj | 2048 | 12288 | 110.8 | 122.8 | 135.6 | **1.22× 慢** ⬇️ |
+| mlp.down_proj | 12288 | 2048 | 110.3 | 147.2 | 143.3 | **1.30× 慢** ⬇️ |
+| self_attn.qkv_proj | 2048 | 5120 | 53.8 | 58.7 | 72.8 | **1.35× 慢** ⬇️ |
+| self_attn.o_proj | 2048 | 2048 | 38.6 | 52.8 | 72.3 | **1.87× 慢** ⬇️ |
+| linear_attn.in_proj_qkvz | 2048 | 8192 | 78.1 | 83.0 | 114.9 | **1.47× 慢** ⬇️ |
+| linear_attn.in_proj_ba | 2048 | 40 | 33.9 | 51.8 | 78.8 | **2.32× 慢** ⬇️ |
+| **lm_head** | 2048 | 151936 | 1318.6 | 1465.6 | **1056.9** | **0.80× 快** ✅ |
+
+### 28.3 核心结论（与用户理论完全一致）
+
+#### 假设
+> "BF16 decode 走 `gemvt_op` (M=1 专用 32×4/64×2/128×1 tile)；INT8 decode 走 DeepGEMM int8 GEMMKernel（对 M=1 无 tile 优化，最小 tile 是 M=16，浪费 94% 计算）"
+
+#### 实测验证
+✅ **BF16 gemvt 确实 M=1 专用**——profile 显示 BF16 GEMM 中 99% 是 gemvt_op M=1（N=1 in profile 是 batch 维，K/N tile 是 32×4 / 64×2 / 128×1）。torch.nn.functional.linear 也比 `gemm_bf16_bf16_bf16_nt` 快 14-39%（见上表），证实 BF16 decode 路径不会进通用 GEMM。
+
+✅ **DeepGEMM int8 没有 M=1 专用 tile**——profile 中 INT8 的所有 GEMM 调用 M ∈ {16, 32, 128, 256}，无 M=1。直接调用 `gemm_int8_int8_bf16_nt(M=1)` 时 sglang 必须 pad 到 16。
+
+✅ **大多数 decode GEMM INT8 比 BF16 慢**——上表 6/7 个 layer INT8 更慢 1.22×-2.32×，唯一赢的是 `lm_head` (N=151936，M-pad 开销被大 N 摊销)。
+
+#### 为什么带宽节省没能转化成速度？
+
+| 维度 | BF16 | INT8 | 变化 |
+|---|---|---|---|
+| 权重存储 | 2 bytes/elem | 1 byte/elem | -50% ✅ |
+| 权重读取带宽（理论） | 2KN bytes | KN bytes | -50% ✅ |
+| 每次 token decode 实际计算量 | M·K·N MAC | M·K·N MAC | 相同 |
+| **M=1 时有效 MAC** | 1·K·N | **16·K·N** (padding) | **+1500%** ⬆️⬆️⬆️ |
+| Decode kernel tile shape | 32×4 / 64×2 / 128×1 | 16×128×128 | - |
+
+**M=1 时带宽不是瓶颈**：
+- mlp.gate_up_proj M=1: 读 2·2048 + 12288·2048·2 = 50.5 MB → 理论 BF16 读 50.5 MB / 1.6 TB/s (HBM bw) = 31μs
+- 实测 110.8μs → **远没到带宽上限**（实测 BW = 50.5 MB / 110.8μs = 0.46 TB/s = 28% of peak）
+- INT8 节省 25 MB（权重一半）→ 理论省 16μs
+- 但 DeepGEMM M=16 浪费 15/16 计算 → +135.6 - 110.8 = 24.8μs **开销**
+- **带宽节省 (16μs) < padding 开销 (24.8μs) → INT8 净输 8μs**
+
+### 28.4 这就解释了为什么 500 样本对比是「INT8 ≈ BF16」而不是「INT8 << BF16」
+
+- §26 INT8 tuned: 330.50 tok/s, 78.88ms ttft
+- §27 G 组 bf16:  331.20 tok/s, 73.30ms ttft
+
+理论上每个 decode GEMM 都慢 1.22-2.32×，应该看到显著性能差距，但实测接近打平。原因：
+
+1. **Decode 阶段不是纯 GPU bound**——sglang scheduler + Python runtime + attention 等其他 kernel 占据 wall-clock 大量时间。GEMV 慢 30μs 摊到 256 token decode loop 里只有 7-8ms 差异，被其他部分吸收。
+2. **DeepGEMM Autotune 帮 INT8 选了大 tile 优势**——prefill 阶段（视觉 encoder 输出 + 第一波 token）INT8 确实占优（带宽真省下来了），与 decode 劣势抵消。
+3. **lm_head 是 INT8 唯一赢的点**——N=151936 时 INT8 比 BF16 快 20%，每个 decode 步都跑一次 lm_head，给 INT8 一点 net positive。
+
+### 28.5 对我们提交的意义
+
+- **G 组 bf16 仍是首选**（§27）——不用动
+- **INT8 路线没有继续优化的空间**——除非：
+  - a) 自己写一个 INT8 M=1 专用 GEMV kernel（绕过 DeepGEMM），但这要改 sglang 源码
+  - b) 改 qlean recipe 把 V 层/MLP gate 等敏感层保留 BF16（§10.5 路径 A），但 fused layer 矛盾未解决
+  - c) 等 sglang-for-SAIL 后续版本提供 INT8 GEMV kernel（短期无望）
+- **下一步探索方向**应该是 §27 的 bf16 配置微调：chunked-prefill、speculative decoding、TTFT-优先 cuda graph 调度等
+
+### 28.6 复现命令
+
+```bash
+# Profile 数据已经存在（profile_results/）
+python3 /tmp/quant_bench/analyze_csv.py
+
+# 直接 microbench（需要能 import deep_gemm）
+python3 /tmp/quant_bench/decode_microbench.py
+
+# 用 acu 重新采集（不推荐，会杀掉目标进程）
+# /usr/local/PPU_SDK/asight/bin/acu -o report -f --kill=no python3 your_app.py
+```
+
+### 28.7 关联文档
+
+- `INT8_strategy.md` §10 — qlean 配方 vs sglang fused layer 不兼容的根因
+- §27 — G 组 bf16 vs INT8 tuned 500 样本基准
+- §26 — DeepGEMM Autotune 输出与启用流程

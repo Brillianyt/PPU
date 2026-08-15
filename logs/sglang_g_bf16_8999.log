@@ -2860,3 +2860,5 @@ You may be able to resolve this warning by setting `model_config['protected_name
 [2026-08-15 23:07:57] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 1739.23
 [2026-08-15 23:07:57] INFO:     127.0.0.1:35734 - "POST /v1/chat/completions HTTP/1.1" 200 OK
 [2026-08-15 23:07:57] Decode batch, #running-req: 1, #full token: 320, full token usage: 0.00, mamba num: 1, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 189.16, #queue-req: 0
+[2026-08-15 23:27:17] Prefill batch, #new-seq: 1, #new-token: 64, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, #pending-token: 0, cuda graph: False, input throughput (token/s): 0.06
+[2026-08-15 23:27:18] INFO:     127.0.0.1:44666 - "GET /health_generate HTTP/1.1" 200 OK
