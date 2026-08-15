@@ -1,0 +1,21 @@
+quant_stage:
+  quant_modifiers:
+    generalDay0Modifier:
+      scheme: W8A8
+      ignore:
+        # ---- 全量化策略 S3: 只保留不可量化层 BF16 ----
+        - "re:.*lm_head"
+        - "re:.*embed_tokens"
+        - "re:.*mlp\\.gate$"
+        # 1D / 3D tensors
+        - "re:.*norm\\.weight$"
+        - "re:.*norm1\\.weight$"
+        - "re:.*norm2\\.weight$"
+        - "re:.*q_norm\\.weight$"
+        - "re:.*k_norm\\.weight$"
+        - "re:.*linear_attn\\.A_log$"
+        - "re:.*linear_attn\\.dt_bias$"
+        - "re:.*linear_attn\\.conv1d.*"
+        # MTP / Vision
+        - "re:.*mtp\\..*"
+        - "re:.*visual\\..*"

@@ -1,0 +1,32 @@
+quant_stage:
+  quant_modifiers:
+    generalDay0Modifier:
+      scheme: W8A8
+      ignore:
+        # ---- Standard ignores ----
+        - "re:.*lm_head"
+        - "re:.*embed_tokens"
+        - "re:.*mlp\\.gate$"
+        # 1D / 3D tensors
+        - "re:.*norm\\.weight$"
+        - "re:.*norm1\\.weight$"
+        - "re:.*norm2\\.weight$"
+        - "re:.*q_norm\\.weight$"
+        - "re:.*k_norm\\.weight$"
+        - "re:.*linear_attn\\.A_log$"
+        - "re:.*linear_attn\\.dt_bias$"
+        - "re:.*linear_attn\\.conv1d.*"
+        # MTP / Vision
+        - "re:.*mtp\\..*"
+        - "re:.*visual\\..*"
+        # ---- AMQ 高误差层保持 BF16 ----
+        # in_proj_a/b: 误差最高 (mean 0.0154), recurrent 状态投影
+        - "re:.*linear_attn\\.in_proj_a$"
+        - "re:.*linear_attn\\.in_proj_b$"
+        # out_proj: GDN 环路输出投影
+        - "re:.*linear_attn\\.out_proj$"
+        # 19/23 full_attention qkv: 误差 > 0.015
+        - "re:.*layers\\.19\\.self_attn\\.(q_proj|k_proj|v_proj)$"
+        - "re:.*layers\\.23\\.self_attn\\.(q_proj|k_proj|v_proj)$"
+        # ---- S2 激进: gate/up 和 in_proj_qkv/z 放回 INT8 ----
+        # (它们权重重建误差最低: gate_up mean 0.0092, in_proj_qkvz mean 0.0096)
