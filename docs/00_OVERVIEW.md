@@ -1,44 +1,40 @@
-# DNDX v1.2 完整工作日志
+# 00. 总览
 
-> 目的：在工作仓库不持久的情况下，把"如何认识环境 → 如何实验 → 最终推荐"的每一步固化下来，便于 git clone 后立即复现。
+> DNDX 多模态推理调优赛 · Qwen3.5-2B · PPU-ZW810E
 
-## 目录结构
+## 探索路径 (一段话总结)
+
+```
+sglang triton baseline (TTFT 419ms, tput 284 tok/s, acc 0.80)
+  └─→ + fa3 attention          →  TTFT 313ms, acc 0.85
+       └─→ + FLA_CUDA=1 (PPU 原生 GDN kernel)  →  TTFT 64ms (突破!)
+            └─→ + --disable-radix-cache        →  tput 369 tok/s
+                 └─→ + --page-size 64           →  TTFT 64.7ms ← G 组 (历史最优 bf16)
+
+INT8 W8A8 量化 (单独路径):
+  └─→ + DeepGEMM (sglang < 0.5.13 garbage)  →  acc 0.66, 否决
+       └─→ + 0.5.13 修复 + FLA + ACEXT + Piecewise CUDA Graph  →  tput 410 tok/s (但 acc 0.76)
+```
+
+## 推荐配置 (二选一)
+
+| 优先级 | 方案 | 预期指标 (en 100) |
+|---|---|---|
+| **首选** | G 组 bf16 (简单,无 patch) | acc 0.81 / TTFT 73ms / tput 357 tok/s |
+| 冲吞吐 | S2-aggressive + ACEXT + pCG | acc 0.76 / TTFT 78ms 稳态 / tput 410 tok/s |
+
+详见 [`../README_REPRODUCE.md`](../README_REPRODUCE.md) §2 快速启动。
+
+## 文档地图
 
 | 文件 | 内容 |
 |---|---|
-| `docs/00_OVERVIEW.md` | 本文件 — 总体路径 |
-| `docs/01_ENVIRONMENT.md` | 镜像、硬件、版本、模型、数据集 |
-| `docs/02_DISCOVERY.md` | 启动 → baseline → 各 flag 探索过程（按时间顺序） |
-| `docs/03_KEY_FINDINGS.md` | 关键技术发现（FLA_CUDA、radix、page-size、deepgemm） |
-| `docs/04_PROFILE.md` | asys 算子 profile + GEMV → 组件定位 |
-| `docs/05_FAILED_EXPERIMENTS.md` | EAGLE/NEXTN/INT8/DALI/长 timeout 等失败/否决项 |
-| `docs/06_FINAL_CONFIG.md` | 最终推荐配置 + 一键启动脚本 |
-| `docs/07_PROFILE_TO_KERNEL_MAP.md` | 每个 GEMV 算子对应到模型 Linear 层 |
-| `docs/08_REPRODUCE.md` | 复现所有实验的命令清单 |
-
-## 整体路径
-
-```
-1. 环境认识：1× PPU-ZW810E (96GB), sglang 0.5.10+ppu2.1.1, Qwen3.5-2B bf16, mmbench_dev_en
-2. Baseline：transformers 不可用（版本太老不认识 qwen3_5），强制走 sglang 后端
-3. sglang baseline (triton attention)：TTFT 419ms, throughput 284 tok/s, accuracy 0.80
-4. 探索 1：fa3 attention → TTFT -25% (313ms), accuracy +5pp
-5. 探索 2：+ SGLANG_SAIL_FLA_CUDA=1 → TTFT -85% (64ms!) ← 重大突破
-6. 探索 3：+ --disable-radix-cache → throughput +30% (369 tok/s)
-7. 探索 4：+ --page-size 64 → TTFT 再 -6%, throughput 持平 ← 最终配置 G 组
-8. 失败：EAGLE/NEXTN 投机解码 → hybrid GDN 模型崩溃（parent_token None）
-9. 失败：INT8 W8A8 量化 → accuracy -19pp, 不可用
-10. 失败：DALI 图像预处理 → HF Qwen2VLImageProcessorFast 已在 GPU，0.72ms/张无空间
-11. 失败：长 timeout（watchdog-timeout/dist-timeout 3600）→ 违反规则
-12. 算子 profile：asys 60s trace → GEMV 73.4%, Native 21.3%, FA 4.9%, Triton 0.4%
-13. GEMV 定位：grid 拆分 → 5 个 Linear 类别被定位
-14. 结论：G 组是这台机器 + 这个 sglang + bf16 模型下的 SOTA
-```
-
-## 关键产出文件
-
-- `evaluation_wrapper.py` — 唯一提交物，sglang 后端，默认 G 组配置
-- `EXPERIMENT.md` — 完整实验日志（章节 1-18 + 新增 19-23）
-- `docs/` — 详细的工作日志
-- `profile_results/*.csv` — 算子 profile 数据（不含大 .asysrep）
-- `result_dev_en_*.json` — 各次 benchmark 结果
+| [`../README_REPRODUCE.md`](../README_REPRODUCE.md) | 5 分钟复现入口 (TL;DR + 启动命令) |
+| `01_ENVIRONMENT.md` | 镜像/硬件/版本/模型/数据集 |
+| `02_RESULTS.md` | 全部实验结果 (按方案排序的对比表) |
+| `03_FAILED.md` | 否决/失败的实验 (投机解码、量化错误等) |
+| `04_PROFILE.md` | asys 算子 profile + GEMV → Linear 映射 |
+| `05_QUANT.md` | S2/S3 量化策略 + GEMV decode 算子细节 |
+| `06_REPRODUCE_DETAIL.md` | 各对照组详细复现命令 |
+| [`../EXPERIMENT.md`](../EXPERIMENT.md) | 完整实验日志 (按时间顺序,原始 1838 行) |
+| [`../.archive/`](../.archive/) | 历史细碎文档 (只读,不再维护) |

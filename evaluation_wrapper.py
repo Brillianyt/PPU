@@ -219,9 +219,10 @@ class _SGLangServer:
         env["SGLANG_SAIL_PREFILL_BF16"] = "1"
 
         # === ACEXT(与 GEMV 互斥接管 dense linear)===
-        # 本路线默认 **关闭**(避免 GEMV 被 bypass)。
-        # 切 ACEXT:export SGLANG_SAIL_USE_ACEXT_CUDA=1
-        use_acext = os.environ.get("SGLANG_SAIL_USE_ACEXT_CUDA", "0") == "1"
+        # §37 实测 ACEXT 比 GEMV 又快 +2.4% (423 vs 418 tok/s),且来源是
+        # PPU sgl_kernel 内置(`sgl_kernel.int8_gemm`),无 patch 成本。
+        # 默认开启;关 ACEXT 回退到 GEMV: SGLANG_SAIL_USE_ACEXT_CUDA=0
+        use_acext = os.environ.get("SGLANG_SAIL_USE_ACEXT_CUDA", "1") == "1"
         env["SGLANG_SAIL_USE_ACEXT_CUDA"] = "1" if use_acext else "0"
 
         # === DEBUG:GEMV 是否真在 CG capture/replay 中被调用 ===
