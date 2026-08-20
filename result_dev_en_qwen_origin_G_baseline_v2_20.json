@@ -1,0 +1,188 @@
+{
+  "backend": "sglang",
+  "sample_count": 20,
+  "avg_ttft_ms": 86.94144005003182,
+  "avg_throughput_tokens_per_sec": 279.78927014133563,
+  "details": [
+    {
+      "i": 0,
+      "qid": "0",
+      "ttft_ms": 156.33232100026362,
+      "dur_s": 0.7052440670004216,
+      "n_tok": 175,
+      "thr_tps": 248.1410453324599,
+      "text": "Madelyn and Tucker\u2019s experiment can best answer:\n\n**\u201cDoes we"
+    },
+    {
+      "i": 1,
+      "qid": "1",
+      "ttft_ms": 81.0222709997106,
+      "dur_s": 0.8680722769995555,
+      "n_tok": 256,
+      "thr_tps": 294.9063191890542,
+      "text": "Laura and Isabella\u2019s test \u2014 likely a **concrete mix preparat"
+    },
+    {
+      "i": 2,
+      "qid": "2",
+      "ttft_ms": 83.64869700017152,
+      "dur_s": 0.865877809000267,
+      "n_tok": 256,
+      "thr_tps": 295.6537254322002,
+      "text": "In this experiment, the **independent variable** is the fact"
+    },
+    {
+      "i": 3,
+      "qid": "3",
+      "ttft_ms": 90.81916700051806,
+      "dur_s": 0.862663750000138,
+      "n_tok": 256,
+      "thr_tps": 296.7552537126535,
+      "text": "Devin\u2019s test \u2014 which involves placing a small object (like a"
+    },
+    {
+      "i": 4,
+      "qid": "4",
+      "ttft_ms": 83.20185199954722,
+      "dur_s": 0.6167878829992333,
+      "n_tok": 172,
+      "thr_tps": 278.86410343150953,
+      "text": "Carson\u2019s experiment can best answer:\n\n**\u201cDo muffins baked wi"
+    },
+    {
+      "i": 5,
+      "qid": "5",
+      "ttft_ms": 87.32093199978408,
+      "dur_s": 0.8503447410002991,
+      "n_tok": 256,
+      "thr_tps": 301.05436966524377,
+      "text": "The tide pool ecosystems in Tongue Point Marine Life Sanctua"
+    },
+    {
+      "i": 6,
+      "qid": "6",
+      "ttft_ms": 90.07913400000689,
+      "dur_s": 0.44209454900010314,
+      "n_tok": 119,
+      "thr_tps": 269.1731899186394,
+      "text": "The part of an apple tree that might grow into a new tree is"
+    },
+    {
+      "i": 7,
+      "qid": "7",
+      "ttft_ms": 93.69884100033232,
+      "dur_s": 0.6703297760004716,
+      "n_tok": 194,
+      "thr_tps": 289.4097904430006,
+      "text": "The animal in the image is a **sugar glider** (*Petaurus bre"
+    },
+    {
+      "i": 8,
+      "qid": "8",
+      "ttft_ms": 80.8402170005138,
+      "dur_s": 0.857337137000286,
+      "n_tok": 256,
+      "thr_tps": 298.59898627010557,
+      "text": "The fish in the image is a **wahoo** (*Thunnus alalunga*), a"
+    },
+    {
+      "i": 9,
+      "qid": "9",
+      "ttft_ms": 71.92038900029729,
+      "dur_s": 0.8352892660004727,
+      "n_tok": 256,
+      "thr_tps": 306.4806533738638,
+      "text": "The animal in the image is a **snowshoe hare** (or possibly "
+    },
+    {
+      "i": 10,
+      "qid": "10",
+      "ttft_ms": 77.34983600039413,
+      "dur_s": 0.8572721929995168,
+      "n_tok": 256,
+      "thr_tps": 298.62160710506595,
+      "text": "The two objects shown \u2014 **ocean water** and **potato chips**"
+    },
+    {
+      "i": 11,
+      "qid": "11",
+      "ttft_ms": 91.3184769997315,
+      "dur_s": 0.6082913330001247,
+      "n_tok": 172,
+      "thr_tps": 282.7592481906441,
+      "text": "Boron trifluoride is **covalent**.\n\n### Explanation:\n- **Bor"
+    },
+    {
+      "i": 12,
+      "qid": "12",
+      "ttft_ms": 87.12299999933748,
+      "dur_s": 0.2148890329999631,
+      "n_tok": 44,
+      "thr_tps": 204.75684303538915,
+      "text": "Solute particles moved in both directions across the permeab"
+    },
+    {
+      "i": 13,
+      "qid": "13",
+      "ttft_ms": 91.99875499962218,
+      "dur_s": 0.21935951999967074,
+      "n_tok": 44,
+      "thr_tps": 200.58395459684652,
+      "text": "Solute particles moved in both directions across the permeab"
+    },
+    {
+      "i": 14,
+      "qid": "14",
+      "ttft_ms": 85.18283700050233,
+      "dur_s": 0.39476875600030326,
+      "n_tok": 105,
+      "thr_tps": 265.97849602849357,
+      "text": "Ammonia is **NH\u2083** \u2014 a molecule composed of one nitrogen ato"
+    },
+    {
+      "i": 15,
+      "qid": "15",
+      "ttft_ms": 82.35477699963667,
+      "dur_s": 0.44637142200008384,
+      "n_tok": 123,
+      "thr_tps": 275.5552751313387,
+      "text": "Based on the provided map, the **Southern Colonies** are the"
+    },
+    {
+      "i": 16,
+      "qid": "16",
+      "ttft_ms": 77.80997800000478,
+      "dur_s": 0.7477939590007736,
+      "n_tok": 222,
+      "thr_tps": 296.87321932453636,
+      "text": "Based on the timeline provided, the true statement is:\n\n> **"
+    },
+    {
+      "i": 17,
+      "qid": "17",
+      "ttft_ms": 78.29986799970357,
+      "dur_s": 0.8402609659997324,
+      "n_tok": 256,
+      "thr_tps": 304.66725262599135,
+      "text": "Yes, **native copper** is a mineral.\n\n### Here\u2019s why:\n\nA **m"
+    },
+    {
+      "i": 18,
+      "qid": "18",
+      "ttft_ms": 75.1554930002385,
+      "dur_s": 0.8376991340001041,
+      "n_tok": 256,
+      "thr_tps": 305.5989789288336,
+      "text": "No, **plastic is not a mineral**.\n\n### Here\u2019s why:\n\n#### 1. "
+    },
+    {
+      "i": 19,
+      "qid": "19",
+      "ttft_ms": 73.35195900031977,
+      "dur_s": 0.44072734200017294,
+      "n_tok": 124,
+      "thr_tps": 281.3530910908435,
+      "text": "The statement: **\u201cThe smallest planet is made mainly of rock"
+    }
+  ]
+}

@@ -1788,3 +1788,51 @@ Process 2097952 has 91.88 GiB memory in use.
 - Launcher：`sglang_launcher.py` §36 版本
 - 命令：`python3 sglang_launcher.py --model-path ...S2-aggressive ... --quantization w8a8_int8`
 - 收益：**+8.8% 吞吐，+1 样本准确率，TTFT 接近 baseline**
+
+---
+
+## §38. 严谨对照(2026-08-20,同机器同 SGLang 重测)
+
+> 背景:历史 §36 baseline 是 2026-08-14 在当时 GPU 状态下测的(TTFT 64.7ms,thr 369 tok/s)。
+> 用户反馈"机器状态可能不同",故在 2026-08-20 同一台机器上、用同一份 SGLang 0.5.13、
+> 同一份 evaluation_wrapper.py 客户端流程,重新跑 G 组 baseline(BF16)+ ACEXT 路线 + GEMV in CG。
+
+### §38.1 完整数据(20 样本 dev_en)
+
+| 配置 | TTFT (ms) | throughput (tok/s) | accuracy | 来源 |
+|---|---|---|---|---|
+| **真实 G 组 baseline(BF16,本次严谨)** | **86.94** | **279.79** | ~0.85 | `result_dev_en_qwen_origin_G_baseline_v2_20.json` |
+| **GEMV in CG(我们的方案,INT8)** | **84.16** | **418.47** | **0.85** | `result_dev_en_int8_s2_gemv_cg_v9_20.json` |
+| **ACEXT=1(本次严谨)** | **82.31** | **423.24** | **0.85** | `result_dev_en_int8_s2_acext_v12_20.json` |
+
+### §38.2 相对真实 G 组 baseline 的提升
+
+| 方案 | TTFT 变化 | throughput 变化 | accuracy |
+|---|---|---|---|
+| GEMV in CG | **-3.2%** ✓ | **+49.6%** ✓ | ✓持平 |
+| **ACEXT(本次最佳)** | **-5.3%** ✓ | **+51.2%** ✓ | ✓持平 |
+
+### §38.3 GEMV in CG vs ACEXT 对比
+
+| 维度 | GEMV in CG | ACEXT |
+|---|---|---|
+| TTFT | 84.16 ms | **82.31 ms** (-2.2%) |
+| throughput | 418.47 tok/s | **423.24 tok/s** (+1.1%) |
+| 路线匹配"GEMV 融入 CG" | ✅ 完全达成 | ❌ 完全绕过 GEMV |
+| 工程可解释性 | 自研,可继续迭代 | PPU 厂商黑盒 |
+| 科研价值 | M-aware kernel + CUDA Graph(可发表) | 平台利用(不可发表)|
+
+### §38.4 结论与决策
+
+- **ACEXT 是当前 TTFT + 吞吐双指标最优**(82.31ms / 423 tok/s)
+- 但 ACEXT 路径与"GEMV 融入 CG"目标互斥(代码层 `if SGLANG_SAIL_USE_ACEXT_CUDA.get(): return acext_int8_gemm(...)`,不走 GEMV/GEMM)
+- **最终决策**:把 ACEXT 锁定为 PPU 实测最佳,作为后续工作的基线。GEMV in CG 作为"路线 A"保留(供科研/学术发布)。两者互为备选:`SGLANG_SAIL_USE_ACEXT_CUDA=1` 切 ACEXT;`=0` 走 GEMV in CG。
+
+### §38.5 关键约束(本次实测再次验证)
+
+- **SGLANG_VIT_ENABLE_CUDA_GRAPH=1 在 PPU 上不可行**(撞到 Inductor codegen 的 `Cannot copy between CPU and CUDA tensors during CUDA graph capture unless the CPU tensor is pinned`)
+- **`--enable-piecewise-cuda-graph` 在 VLM 模型上被 SGLang 0.5.13 强制 disable**(`is_multimodal` 强制规则),实际只用普通 CUDA Graph
+- **`--enable-torch-compile` 必须关闭**(Inductor 编译 GDN 的 causal_conv1d triton 时崩)
+- **`--quantization w8a8_int8` 必须显式传**(不传会 fallback 到 compressed_tensors_w8a8_int8,PPU sgl_kernel 没 int8_scaled_mm)
+- **`SGLANG_SAIL_FLA_CUDA=1` 必设**(PPU 上 GDN 走 FLA fused_recurrent SAIL kernel)
+- **`SGLANG_DISABLE_CUSTOM_ALL_REDU` 必设 + symm_mem 替代**(custom all-reduce 不支持 CUDA Graph)

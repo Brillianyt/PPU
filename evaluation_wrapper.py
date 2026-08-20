@@ -125,8 +125,13 @@ class _SGLangServer:
         # Default command tuned for Qwen3.5-2B on PPU 810E (see EXPERIMENT.md
         # §17 — "对照组 G"): fa3 attention + PPU SAIL FLA CUDA kernel + radix
         # cache off + page-size 64. This G-group configuration beats the
-        # triton baseline on TTFT (-85 %) and throughput (+30 %). Anything
-        # overridable can still be flipped via SGLANG_* env vars.
+        # triton baseline on TTFT (-85 %) and throughput (+30 %).
+        # 现在额外叠加 piecewise CUDA Graph(参 SGLang PR #15320 思想):
+        #   - ViT blocks+merger 段压成 graph(配 SGLANG_VIT_ENABLE_CUDA_GRAPH=1)
+        #   - decode 主体走 piecewise CUDA Graph(配 wrapper GEMV 已预热)
+        # 不开 --enable-torch-compile:PPU 上 Inductor 对 causal_conv1d triton
+        # 内核 codegen 有 bug(launcher() missing _grid_2),piecewise CUDA Graph
+        # 自带的 eager 编译模式不需要显式 torch.compile。
         cmd = [
             sys.executable,
             "-u",
@@ -152,6 +157,10 @@ class _SGLangServer:
             os.environ.get("SGLANG_PAGE_SIZE", "64"),
             "--log-level",
             os.environ.get("SGLANG_LOG_LEVEL", "info"),
+            # === INT8 GEMV / GEMM 走我们 patches 注入的 w8a8_int8.py ===
+            # 不设这个会 fallback 到 compressed_tensors_w8a8_int8,该路径会调
+            # sgl_kernel.int8_scaled_mm(PPU sgl_kernel 里没这个 op,必崩)
+            "--quantization", os.environ.get("SGLANG_QUANTIZATION", "w8a8_int8"),
         ]
 
         # Radix cache is on by default in sglang; for short, mostly-unique
@@ -159,6 +168,28 @@ class _SGLangServer:
         # benefit. Set SGLANG_FORCE_RADIX_CACHE=1 to re-enable.
         if os.environ.get("SGLANG_FORCE_RADIX_CACHE", "0") != "1":
             cmd.append("--disable-radix-cache")
+
+        # === piecewise CUDA Graph + ViT 优化(ViT PR #15320 思路) ===
+        # 默认开;用户可用 SGLANG_DISABLE_CUDA_GRAPH=1 关掉(debug / 对照实验)。
+        # 注:--linear-attn-backend 没有 fla 选项(PPU FLA 是 env var 控制,见下)
+        # PPU 实测:
+        #   - piecewise CUDA Graph + eager compiler: ✅ 工作(SGLANG_VIT_ENABLE_CUDA_GRAPH=0 时)
+        #   - SGLANG_VIT_ENABLE_CUDA_GRAPH=1 + 多模态请求: ❌ 触发 Inductor codegen
+        #     "Cannot copy between CPU and CUDA tensors during CUDA graph capture
+        #     unless the CPU tensor is pinned"(PR #15320 的 PPU 兼容性问题)
+        #   - 决策:默认开 piecewise CUDA Graph + 普通 CUDA Graph,关 ViT CG;
+        #     用 SGLANG_VIT_ENABLE_CUDA_GRAPH_OVERRIDE=1 可重新打开(用户测试用)
+        if os.environ.get("SGLANG_DISABLE_CUDA_GRAPH", "0") != "1":
+            cmd.extend([
+                "--enable-piecewise-cuda-graph",
+                "--piecewise-cuda-graph-max-tokens",
+                os.environ.get("SGLANG_PIECEWISE_CUDA_GRAPH_MAX_TOKENS", "4096"),
+                "--piecewise-cuda-graph-compiler", "eager",
+                "--mm-attention-backend", "fa3",
+                # 普通 CUDA Graph max BS — baseline 用 256,我们之前误设 32 太小
+                # 单样本 TTFT 影响小,但 batched 推理会更稳
+                "--cuda-graph-max-bs", os.environ.get("SGLANG_CUDA_GRAPH_MAX_BS", "256"),
+            ])
 
         extra_args = os.environ.get("SGLANG_EXTRA_ARGS", "").strip()
         if extra_args:
@@ -169,6 +200,40 @@ class _SGLangServer:
         # attention layers. Without this, sglang falls back to the community
         # Triton kernel which leaves a ~300 ms prefill plateau on Qwen3.5.
         env["SGLANG_SAIL_FLA_CUDA"] = "1"
+
+        # === ViT Piecewise CUDA Graph(PR #15320)===
+        # PPU 实测关闭(见上方注释);用户可显式开启重试
+        env["SGLANG_VIT_ENABLE_CUDA_GRAPH"] = (
+            "1" if os.environ.get("SGLANG_VIT_ENABLE_CUDA_GRAPH_OVERRIDE", "0") == "1" else "0"
+        )
+        env.setdefault("SGLANG_MM_FEATURE_CACHE_MB", "4096")
+        env.setdefault("SGLANG_VLM_CACHE_SIZE_MB", "0")
+
+        # === GEMV / 量化分派 + 自动 warmup(本仓库 patches 注入)===
+        # 本路线目标:GEMV 真正进入 CUDA Graph,不被 ACEXT 互斥绕过。
+        # GEMV 默认开启 + warmup 默认开启;ACEXT 默认关闭。
+        env["SGLANG_SAIL_DEEPGEMM_DENSE"] = "1"
+        env.setdefault("SGLANG_SAIL_USE_GEMV", "1")
+        env.setdefault("SGLANG_SAIL_GEMV_M_MAX", "8")
+        env.setdefault("SGLANG_SAIL_GEMV_WARMUP_ON_LOAD", "1")
+        env["SGLANG_SAIL_PREFILL_BF16"] = "1"
+
+        # === ACEXT(与 GEMV 互斥接管 dense linear)===
+        # 本路线默认 **关闭**(避免 GEMV 被 bypass)。
+        # 切 ACEXT:export SGLANG_SAIL_USE_ACEXT_CUDA=1
+        use_acext = os.environ.get("SGLANG_SAIL_USE_ACEXT_CUDA", "0") == "1"
+        env["SGLANG_SAIL_USE_ACEXT_CUDA"] = "1" if use_acext else "0"
+
+        # === DEBUG:GEMV 是否真在 CG capture/replay 中被调用 ===
+        # 设 1 时 wrapper __call__ 会输出每帧调用 + capturing 状态。
+        # 期望看到:capture 阶段 bs=1..32 各自调一次;replay 阶段不再调 Python。
+        if os.environ.get("SGLANG_DEBUG_GEMV", "0") == "1":
+            env["SGLANG_DEBUG_GEMV"] = "1"
+
+        # custom all-reduce 还不支持 CUDA Graph,必须关 + 用 symm-mem 替代
+        # (注意:这些是命令行参数,这里再设 env 是为了将来 launch_server 的 fallback 路径)
+        env.setdefault("SGLANG_DISABLE_CUSTOM_ALL_REDU", "1")
+        env.setdefault("SGLANG_ENABLE_TORCH_SYMM_MEM", "1")
 
         return subprocess.Popen(
             cmd,
