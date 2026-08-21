@@ -79,9 +79,15 @@ python3 benchmark_public.py \
 ```bash
 cd /mnt/workspace/PPU
 
-# 1) 应用 patches (一次性)
-cp -rv /mnt/workspace/patches/sglang/* /usr/local/lib/python3.12/site-packages/sglang/
-cp -rv /mnt/workspace/patches/deep_gemm/* /usr/local/lib/python3.12/site-packages/deep_gemm/
+# 1) 应用 patches (一次性,纯 Python 覆盖,不改 C++ 扩展)
+#    来源: gemv_optimization/ —— sglang 4 文件 + DeepGEMM 3 文件
+#    部署后 site-packages/sglang/srt/{environ.py,layers/quantization/w8a8_int8.py,layers/deep_gemm_wrapper/*} 和
+#             site-packages/deep_gemm/{__init__.py,jit_kernels/gemv_int8.py}
+#    会被 overlay 覆盖;其它文件原封不动。
+cp -rv /mnt/workspace/PPU/gemv_optimization/sglang-for-sail/python/sglang/* \
+        /usr/local/lib/python3.12/site-packages/sglang/
+cp -rv /mnt/workspace/PPU/gemv_optimization/DeepGEMM-for-sail/deep_gemm/* \
+        /usr/local/lib/python3.12/site-packages/deep_gemm/
 
 # 2) 杀旧 + 启 server (env 自动注入 ACEXT + FLA + GEMV 等开关)
 pkill -9 -f "sglang.launch_server\|sglang::scheduler" 2>/dev/null; sleep 5
