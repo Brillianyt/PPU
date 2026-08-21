@@ -70,7 +70,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=str, default="result_public.json")
     parser.add_argument("--num-samples", type=int, default=None)
     parser.add_argument("--seed", type=int, default=20260625)
-    parser.add_argument("--backend", choices=["auto", "dummy", "transformers", "sglang"], default="auto")
+    parser.add_argument("--backend", choices=["auto", "dummy", "transformers", "sglang"], default="sglang")
     parser.add_argument("--device", type=str, default="auto")
     parser.add_argument("--warmup-samples", type=int, default=2)
     return parser.parse_args()
