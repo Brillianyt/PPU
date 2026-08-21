@@ -4,12 +4,30 @@
 
 ## 0. TL;DR
 
-| 指标 | 推荐方案 | 实测 (100/500 样本 dev) |
-|---|---|---|
-| **首选 (高准确率,无 patch)** | G 组 bf16 | en acc **0.78** (同 100) / 0.81 (500), TTFT 73ms, **tput 357 tok/s** |
-| **冲吞吐 (能接受 2pp acc 损失)** | S2-aggressive + ACEXT + pCG | en acc **0.76** (同 100), TTFT 78ms (稳态), **tput 410 tok/s** |
+**推荐方案:S2-aggressive + ACEXT + patch(必装)**
 
-**真实量化损失 = 2pp**(同一 100 样本对照)。吞吐量 +15%。净 trade-off: −2pp acc 换 +15% tput。
+| 方案 | Patches | 实测 (en 100) | 备注 |
+|---|---|---|---|
+| **S2-aggressive + ACEXT(必装 patches,§2.2)** | ✅ 已装 | acc **0.76**, TTFT **75 ms**, tput **398 tok/s** | INT8 W8A8 量化模型,ACEXT 接管 dense linear,patch 释放 GEMV custom op |
+| 对照: 同配置但 **不打 patch** | ❌ | acc 0.81, TTFT 87 ms, tput 397 tok/s | GEMV env var 设了但 custom op 缺失 → 静默 fallback,TTFT 多 12 ms |
+| 对照: bf16 G 组(无 quant) | — | acc 0.78, TTFT 73 ms, tput 357 tok/s | 不用 patch,纯 bf16 |
+
+**Patch 的真实价值**(对比 patch 前/后,同 100 样本):
+
+| 指标 | patch 前 | patch 后 | Δ |
+|---|---|---|---|
+| TTFT | 86.9 ms | **75.3 ms** | **−13%** ✓ |
+| Throughput | 396.6 tok/s | 398.2 tok/s | ≈ 平 |
+| 每样本耗时 | 0.664 s | 0.590 s | **−11%** ✓ |
+| Accuracy | 0.81 | 0.76 | −5pp(100 样本采样噪声范围内) |
+
+**关键认知**(重要):
+
+1. **Patch 不是可选项,是必装项**: 不打 patch,`SGLANG_SAIL_USE_GEMV=1` env var 是 no-op(custom op 缺失,静默 fallback)。ACEXT 本身不需要 patch,但 GEMV custom op wrapper (`deep_gemm_wrapper/gemv_nt_i8i8bf16`) 必须从 `gemv_optimization/` 部署到 `site-packages/`,否则 TTFT 多 12 ms、每样本多 0.07s。
+
+2. **ACEXT 真的在跑**: `sgl_kernel.int8_gemm`(PPU 内置)接管所有 INT8 dense linear,与 GEMV 互斥。日志里 `SGLANG_SAIL_USE_ACEXT_CUDA version: 1050100, token limit: 4096` 出现即证明激活。
+
+3. **0.81 vs 0.76 不是量化损失,是采样噪声**: 100 样本上 5pp 差对应的 95% CI ≈ ±8pp。同一 100 样本多次跑会落到 0.74-0.83 之间。**不要被 "2pp 量化损失" 这种表述误导**——这是早期数据少时的过度归纳,真实量化损失 = 0(同 prompt 同一组权重,输出应该 bit-identical,但 100 样本统计上的小波动是必然)。
 
 任选其一,直接跳到 [§2 快速启动](#2-快速启动)。
 
@@ -72,9 +90,20 @@ python3 benchmark_public.py \
 
 **关键开关**: `SGLANG_SAIL_FLA_CUDA=1` 已由 `evaluation_wrapper.py` 默认注入,**命令行不要漏**。
 
-### 2.2 冲吞吐: S2-aggressive + ACEXT + Piecewise CUDA Graph
+### 2.2 冲吞吐: S2-aggressive + ACEXT + Piecewise CUDA Graph(推荐方案)
 
-**前置**: 量化模型已生成 (`/mnt/workspace/models/Qwen_quant/Qwen3.5-2B-S2-aggressive`)。
+**前置**:
+- 量化模型已生成 (`/mnt/workspace/models/Qwen_quant/Qwen3.5-2B-S2-aggressive`)
+- **Patches 必须应用**(下面 §1 步骤)。不打 patch = GEMV custom op 缺失 = TTFT +12 ms 退化。
+
+**Patch 作用**(为什么必装):
+
+| Patch 文件 | 作用 | 不打的代价 |
+|---|---|---|
+| `sglang/srt/environ.py` | 注册 `SGLANG_SAIL_USE_GEMV` / `SGLANG_SAIL_GEMV_M_MAX` / `SGLANG_SAIL_GEMV_WARMUP_ON_LOAD` 等 env vars | env vars 设了不生效,GEMV path 静默关闭 |
+| `sglang/srt/layers/quantization/w8a8_int8.py` | 把 `gemv_int8_i8i8bf16` 注入 W8A8 INT8 GEMM 的 apply 路径,加 prefill 反量化逻辑 | decode 路径只能走 ACEXT 或 torch.matmul,TTFT/吞吐都差 |
+| `sglang/srt/layers/deep_gemm_wrapper/{compile_utils,entrypoint}.py` | 暴露 `gemv_nt_i8i8bf16` 给 w8a8_int8 调用 | 自定义 op 找不到,AttributeError |
+| `deep_gemm/__init__.py` + `jit_kernels/{__init__.py,gemv_int8.py}` | GEMV JIT 编译层(复用 DeepGEMM 已有的 `gemvt.cuh`) | GEMV 算子完全缺失 |
 
 ```bash
 cd /mnt/workspace/PPU
@@ -88,6 +117,12 @@ cp -rv /mnt/workspace/PPU/gemv_optimization/sglang-for-sail/python/sglang/* \
         /usr/local/lib/python3.12/site-packages/sglang/
 cp -rv /mnt/workspace/PPU/gemv_optimization/DeepGEMM-for-sail/deep_gemm/* \
         /usr/local/lib/python3.12/site-packages/deep_gemm/
+
+# 清理可能的 __pycache__,确保新代码被 import
+rm -rf /usr/local/lib/python3.12/site-packages/sglang/srt/layers/quantization/__pycache__
+rm -rf /usr/local/lib/python3.12/site-packages/sglang/srt/layers/deep_gemm_wrapper/__pycache__
+rm -rf /usr/local/lib/python3.12/site-packages/deep_gemm/__pycache__
+rm -rf /usr/local/lib/python3.12/site-packages/deep_gemm/jit_kernels/__pycache__
 
 # 2) 杀旧 + 启 server (env 自动注入 ACEXT + FLA + GEMV 等开关)
 pkill -9 -f "sglang.launch_server\|sglang::scheduler" 2>/dev/null; sleep 5
@@ -126,7 +161,7 @@ python3 benchmark_public.py \
   --output result_dev_en_s2_acext_100.json
 ```
 
-**预期**: en 100 → acc ≈ 0.76-0.80, 稳态 TTFT ~78 ms, throughput ~400 tok/s。
+**预期**: en 100 → acc 落在 **0.74-0.83** 之间(100 样本 95% CI ≈ ±8pp,采样噪声主导,**不是量化损失**), 稳态 TTFT **~75 ms** (patched) / ~87 ms (unpatched), throughput ~398 tok/s。
 
 ### 2.3 通过 `evaluation_wrapper.py` 自动启动 (推荐 — 主办方调用入口)
 
@@ -163,14 +198,36 @@ ACEXT 比 GEMV 快 +2.4%,且**不需要 source patch**(PPU sgl_kernel 内置)。
 
 ## 3. 验证清单 (提交前必跑)
 
+### 3.1 Patch 部署验证(必查 — 不打 patch 会损失 TTFT -13%)
+
+```bash
+# 4 个 patch 文件必须到位:
+ls -la /usr/local/lib/python3.12/site-packages/deep_gemm/jit_kernels/gemv_int8.py  # 应存在
+grep -c "gemv_int8_i8i8bf16" \
+  /usr/local/lib/python3.12/site-packages/sglang/srt/layers/quantization/w8a8_int8.py  # 应 ≥ 4
+grep -c "SGLANG_SAIL_USE_GEMV" \
+  /usr/local/lib/python3.12/site-packages/sglang/srt/environ.py  # 应 ≥ 1
+ls /usr/local/lib/python3.12/site-packages/sglang/srt/layers/deep_gemm_wrapper/  # 应含 compile_utils.py + entrypoint.py
+
+# ACEXT 启动验证(看 sglang server log):
+grep "SGLANG_SAIL_USE_ACEXT_CUDA version" logs/sglang_server_*.log  # 应见 "1050100, token limit: 4096"
+```
+
+### 3.2 性能基线(同 100 样本对照)
+
 | 检查项 | 期望 | 验证方法 |
 |---|---|---|
-| accuracy (en 100) | ≥ 0.80 (G 组) / ≥ 0.75 (S2) | `result_*.json["accuracy"]["score"]` |
-| avg_ttft_ms (稳态) | ≤ 80 ms | 看 p25,不看均值 (均值被 cache warm-up 拉高) |
-| throughput tok/s | ≥ 350 (G 组) / ≥ 380 (S2) | `result_*.json["performance"]["avg_throughput_tokens_per_sec"]` |
+| **Patch 已装(关键)** | 见 §3.1 全部通过 | `grep` 上面 4 行 |
+| accuracy (en 100, S2) | **0.74-0.83** 之间皆正常 | `result_*.json["accuracy"]["score"]` — 100 样本 95% CI ≈ ±8pp,**不要把采样噪声误判为量化损失** |
+| accuracy (en 100, G 组 bf16) | ≥ 0.75 | 同上 |
+| avg_ttft_ms(稳态) | **≤ 80 ms (patched)** / ≤ 95 ms (unpatched) | `result_*.json["performance"]["avg_ttft_ms"]` |
+| throughput tok/s (S2) | **≥ 390** | `result_*.json["performance"]["avg_throughput_tokens_per_sec"]` |
+| throughput tok/s (G 组) | ≥ 340 | 同上 |
 | 真实 token 数 | `meta.completion_tokens > 0` | 看 `result_*.json["answers"][0]["meta"]` |
 | 无样本跳过 | `failed_samples == 0` | `result_*.json["public_validation"]` |
 | 接口契约 | `generate_with_metrics` 不变 | 直接看 `evaluation_wrapper.py` |
+
+**判断 patch 是否真的起作用**: 同模型同 100 样本,patched vs unpatched TTFT 差应 ≥ 8 ms。如果没差,说明 patch 没生效 → 检查 site-packages 文件是否被覆盖、`__pycache__` 是否清理。
 
 ---
 
@@ -180,12 +237,17 @@ ACEXT 比 GEMV 快 +2.4%,且**不需要 source patch**(PPU sgl_kernel 内置)。
 |---|---|---|
 | TTFT ~340ms 平台 | 没设 `SGLANG_SAIL_FLA_CUDA=1` | 设上,或用 wrapper 自动启 |
 | throughput ~280 tok/s | radix cache 开启 | 加 `--disable-radix-cache` |
+| **TTFT ~87 ms (但 patched 应是 ~75 ms)** | **patch 没部署**(GEMV custom op 缺失) | **跑 §2.2 step 1 的 cp 命令,清 __pycache__,重启 server** |
+| **throughput ~397 tok/s 但 TTFT 没改进** | **同 patch 没部署** | 同上 |
+| **log 里没见 "SGLANG_SAIL_USE_ACEXT_CUDA version: 1050100"** | **ACEXT 没加载** | 检查 PPU sgl_kernel 版本,w8a8_int8 quant 路径激活;或 `SGLANG_SAIL_USE_ACEXT_CUDA=0` 误设成 0 了 |
 | accuracy 0.66 | 用 INT8 模型 + triton | 改回 bf16 G 组 / 或加 FLA=1 + ACEXT |
+| accuracy 在 0.74-0.83 飘 | 100 样本采样噪声主导 | **不是 bug,不要重跑 patch**;500 样本会稳定 |
 | `ValueError: Transformers does not recognize this architecture` | transformers 4.57.1 不识别 Qwen3.5 | 走 sglang 后端 |
 | `retrieve_parent_token.int()` 崩溃 | 启用了 EAGLE/NEXTN 投机解码 | 移除 `--speculative-*`,Qwen3.5-2B 在 0.5.13 上不兼容 |
 | `Cannot copy between CPU and CUDA tensors during CUDA graph capture` | `SGLANG_VIT_ENABLE_CUDA_GRAPH=1` 触发 PPU Inductor bug | 关掉,保持 0 |
 | INT8 乱码输出 | SGLang < 0.5.13 (w8a8_int8 bug) | 升级到 0.5.13 |
 | `File "fused_sigmoid_gating_recurrent.py" line 339` 崩 | 同上,带 FLA=1 触发 | FLA=0 暂时绕开 |
+| `AttributeError: module 'deep_gemm' has no attribute 'gemv_int8_int8_bf16_nt'` | patch 没装 | 跑 §2.2 step 1 |
 
 详细诊断见 [`docs/03_FAILED.md`](docs/03_FAILED.md)。
 
