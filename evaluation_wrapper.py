@@ -191,7 +191,7 @@ class _SGLangServer:
             cmd.extend([
                 "--enable-piecewise-cuda-graph",
                 "--piecewise-cuda-graph-max-tokens",
-                os.environ.get("SGLANG_PIECEWISE_CUDA_GRAPH_MAX_TOKENS", "4096"),
+                os.environ.get("SGLANG_PIECEWISE_CUDA_GRAPH_MAX_TOKENS", "256"),
                 "--piecewise-cuda-graph-compiler", "eager",
                 "--mm-attention-backend", "fa3",
                 # 普通 CUDA Graph max BS — R6 sweet spot = 16(覆盖 bs=1..16);
