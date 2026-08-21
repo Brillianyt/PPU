@@ -15,6 +15,11 @@ gemv_optimization/
 └── sglang-for-sail/
     └── python/sglang/srt/
         ├── environ.py                         # +3 环境变量
+        ├── hardware_backend/
+        │   └── ppu/attention/
+        │       └── ppu_fa3_hooks.py           # ViT CG: vision.flash_attn_varlen_func → PPU 原生 FA3
+        ├── models/
+        │   └── qwen3_vl.py                    # ViT CG: Qwen3-VL 补 max_context_len
         └── layers/
             ├── quantization/
             │   └── w8a8_int8.py               # GEMV custom op + apply 分派 + prefill 反量化
@@ -39,3 +44,17 @@ gemv_optimization/
 ## 完整设计文档
 
 见 `../docs/10_GEMV_DECODE_FINAL.md`
+
+## 附：ViT CUDA Graph 正解化（新增，与 GEMV 正交）
+
+本目录同时归档 ViT CUDA Graph 正解化的两处 sglang 源码修改，与 GEMV decode
+优化相互独立、可叠加：
+
+- `sglang-for-sail/python/sglang/srt/hardware_backend/ppu/attention/ppu_fa3_hooks.py`
+  （P1）：新增 `@plugin_hook`，把 `vision.flash_attn_varlen_func` 接到 PPU 原生
+  `flash_attn_interface`，使 ViT graph 的 `fa3` backend 真正走 PPU 原生 FA3。
+- `sglang-for-sail/python/sglang/srt/models/qwen3_vl.py`
+  （P2）：`Qwen3VLMoeVisionModel` 补 `max_context_len`，避免 rotary 共享 workspace
+  懒扩展导致已 capture 的 graph 地址失效（精度 −15pp 的根因）。
+
+完整根因、验证数据与部署说明见 `../vit_graph_optimization.md`。
