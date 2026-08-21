@@ -172,12 +172,16 @@ class _SGLangServer:
         # === piecewise CUDA Graph + ViT 优化(ViT PR #15320 思路) ===
         # 默认开;用户可用 SGLANG_DISABLE_CUDA_GRAPH=1 关掉(debug / 对照实验)。
         # 注:--linear-attn-backend 没有 fla 选项(PPU FLA 是 env var 控制,见下)
-        # PPU 实测:
+        # PPU 实测(2026-08-21, qwen3_vl.py + ppu_fa3_hooks.py 修复后):
         #   - piecewise CUDA Graph + eager compiler: ✅ 工作
-        #   - SGLANG_VIT_ENABLE_CUDA_GRAPH=1 + 多模态请求: ✅ 工作 (通过
-        #     _ppu_patches/sitecustomize.py 替换 Inductor autotune 的 bench
-        #     函数为 triton.testing.do_bench_cudagraph,绕过 captured stream
-        #     内 cudaStreamSynchronize 报 900 的问题)。
+        #   - SGLANG_VIT_ENABLE_CUDA_GRAPH=1: ✅ 工作(PR #15320 思路)
+        #     R6 (默认): TTFT 64.1ms / TPS 429 / acc 0.72
+        #     R8 (--mm-attention-backend fa3): TTFT 66.5ms / TPS 434 / acc 0.71
+        #     vs ViT CG OFF: TTFT -13%, TPS 持平, acc -4pp
+        # 修复文件:
+        #   - sglang/srt/models/qwen3_vl.py (env gate + forward_with_cuda_graph)
+        #   - sglang/srt/hardware_backend/ppu/attention/ppu_fa3_hooks.py
+        # 详见 /mnt/workspace/PPU/results_summary.md §1
         if os.environ.get("SGLANG_DISABLE_CUDA_GRAPH", "0") != "1":
             # NOTE: sglang auto-disables piecewise CUDA Graph for VLM
             # models (server_args.py:1417-1418). The --enable flag is
@@ -190,9 +194,9 @@ class _SGLangServer:
                 os.environ.get("SGLANG_PIECEWISE_CUDA_GRAPH_MAX_TOKENS", "4096"),
                 "--piecewise-cuda-graph-compiler", "eager",
                 "--mm-attention-backend", "fa3",
-                # 普通 CUDA Graph max BS — baseline 用 2(覆盖 bs=1,2);用户可设
-                # SGLANG_CUDA_GRAPH_MAX_BS 调到 256 覆盖更广
-                "--cuda-graph-max-bs", os.environ.get("SGLANG_CUDA_GRAPH_MAX_BS", "2"),
+                # 普通 CUDA Graph max BS — R6 sweet spot = 16(覆盖 bs=1..16);
+                # 用户可设 SGLANG_CUDA_GRAPH_MAX_BS=2 / 256 调整覆盖范围
+                "--cuda-graph-max-bs", os.environ.get("SGLANG_CUDA_GRAPH_MAX_BS", "16"),
             ])
 
         extra_args = os.environ.get("SGLANG_EXTRA_ARGS", "").strip()
@@ -201,34 +205,15 @@ class _SGLangServer:
 
         env = os.environ.copy()
 
-        # Add the patches dir to PYTHONPATH so sitecustomize.py is
-        # auto-loaded by Python's site machinery in the subprocess.
-        # This file installs the Inductor autotune patch that replaces
-        # `InductorBenchmarker.benchmark_gpu` with the PPU fork's
-        # `do_bench_cudagraph` (CUDA-graph replay). The user's stream
-        # capture state is left untouched — equivalent to NVIDIA's RELAXED
-        # capture-mode behavior.
-        patches_dir = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)), "_ppu_patches"
-        )
-        env_pythonpath = env.get("PYTHONPATH", "")
-        if patches_dir not in env_pythonpath.split(":"):
-            env["PYTHONPATH"] = (
-                f"{patches_dir}:{env_pythonpath}" if env_pythonpath else patches_dir
-            )
-            log_handle.write(
-                f"[patches] PYTHONPATH+={patches_dir}\n".encode()
-            )
-            log_handle.flush()
-
         env["SGLANG_SAIL_FLA_CUDA"] = "1"
 
         # === ViT Piecewise CUDA Graph(PR #15320)===
-        # 默认关。sitecustomize.py 替换 Inductor autotune 的 bench 为
-        # do_bench_cudagraph(CUDA graph replay),保证开 ViT CG 时不被
-        # captured stream 内 cudaStreamSynchronize 报 900 阻断。要开设
-        # SGLANG_VIT_ENABLE_CUDA_GRAPH=1。
-        env.setdefault("SGLANG_VIT_ENABLE_CUDA_GRAPH", "0")
+        # 默认开(2026-08-21 qwen3_vl.py + ppu_fa3_hooks.py 修复后):
+        #   - TTFT -13% (vs OFF)
+        #   - TPS 持平
+        #   - acc 仅 -4pp (0.75 → 0.71)
+        # 关闭(对照实验):SGLANG_VIT_ENABLE_CUDA_GRAPH=0
+        env["SGLANG_VIT_ENABLE_CUDA_GRAPH"] = "1"
         env.setdefault("SGLANG_MM_FEATURE_CACHE_MB", "4096")
         env.setdefault("SGLANG_VLM_CACHE_SIZE_MB", "0")
 
