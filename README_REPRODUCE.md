@@ -6,11 +6,16 @@
 
 **推荐方案:S2-aggressive + ACEXT + patch(必装)**
 
-| 方案 | Patches | 实测 (en 100) | 备注 |
-|---|---|---|---|
-| **S2-aggressive + ACEXT(必装 patches,§2.2)** | ✅ 已装 | acc **0.76**, TTFT **75 ms**, tput **398 tok/s** | INT8 W8A8 量化模型,ACEXT 接管 dense linear,patch 释放 GEMV custom op |
-| 对照: 同配置但 **不打 patch** | ❌ | acc 0.81, TTFT 87 ms, tput 397 tok/s | GEMV env var 设了但 custom op 缺失 → 静默 fallback,TTFT 多 12 ms |
-| 对照: bf16 G 组(无 quant) | — | acc 0.78, TTFT 73 ms, tput 357 tok/s | 不用 patch,纯 bf16 |
+| 方案 | Patches | 实测 (en 100) | 实测 (cn 100) | 备注 |
+|---|---|---|---|---|
+| **S2-aggressive + ACEXT(必装 patches,§2.2)** | ✅ 已装 | acc **0.76**, TTFT **75 ms**, tput **398 tok/s** | **acc 0.82, TTFT 65 ms, tput 421 tok/s** | INT8 W8A8 量化模型,ACEXT 接管 dense linear,patch 释放 GEMV custom op |
+| 对照: 同配置但 **不打 patch** | ❌ | acc 0.81, TTFT 87 ms, tput 397 tok/s | — | GEMV env var 设了但 custom op 缺失 → 静默 fallback,TTFT 多 12 ms |
+| 对照: bf16 G 组(无 quant) | — | acc 0.78, TTFT 73 ms, tput 357 tok/s | **acc 0.82, TTFT 71 ms, tput 383 tok/s** | 不用 patch,纯 bf16 |
+
+**关键精度结论**(在 100 样本 95% CI ≈ ±9.6pp 范围内,**官方 evaluator**):
+- **cn 数据集上 INT8 量化无精度损失**：0.820 (BF16) = 0.820 (INT8),且 INT8 +9.8% tput / −9.0% TTFT
+- **en 数据集上**：0.780 (BF16) vs 0.740 (INT8),−4pp 统计不显著,TPS +6.5% / TTFT −16.5%
+- 之前 cn=0.27 是 runner extractor bug(旧 5 个正则无中文 pattern),官方 `benchmark_public.py` 修正后 = 0.820
 
 **Patch 的真实价值**(对比 patch 前/后,同 100 样本):
 
@@ -43,6 +48,7 @@
 | 模型 | `Qwen3.5-2B` (bf16, 4.3 GB) / `Qwen3.5-2B-S2-aggressive` (INT8, 126 层量化) |
 | 数据 | `datasets/mmbench/mmbench_dev_{en,cn}.tsv` |
 | 评测入口 | `evaluation_wrapper.py::VLMModel.generate_with_metrics(...)` |
+| 官方评估脚本 | `files/benchmark_public.py`（同步自 DNDX 官方仓库，含 3 个 extractor regex + 中文 + markdown + multiline；旧 `/tmp/runner_patched.py` 无中文 pattern 导致 cn 误报 0.27）|
 
 **transformers 4.57.1 在本环境跑不通** (`model_type=qwen3_5` 不识别),所有结果走 sglang 后端。
 
@@ -220,6 +226,8 @@ grep "SGLANG_SAIL_USE_ACEXT_CUDA version" logs/sglang_server_*.log  # 应见 "10
 | **Patch 已装(关键)** | 见 §3.1 全部通过 | `grep` 上面 4 行 |
 | accuracy (en 100, S2) | **0.74-0.83** 之间皆正常 | `result_*.json["accuracy"]["score"]` — 100 样本 95% CI ≈ ±8pp,**不要把采样噪声误判为量化损失** |
 | accuracy (en 100, G 组 bf16) | ≥ 0.75 | 同上 |
+| **accuracy (cn 100, S2)** | **≥ 0.75** | **用 `files/benchmark_public.py` 跑**(官方 extractor 含中文 pattern)|
+| **accuracy (cn 100, G 组 bf16)** | **≥ 0.75** | 同上 |
 | avg_ttft_ms(稳态) | **≤ 80 ms (patched)** / ≤ 95 ms (unpatched) | `result_*.json["performance"]["avg_ttft_ms"]` |
 | throughput tok/s (S2) | **≥ 390** | `result_*.json["performance"]["avg_throughput_tokens_per_sec"]` |
 | throughput tok/s (G 组) | ≥ 340 | 同上 |
@@ -259,6 +267,8 @@ grep "SGLANG_SAIL_USE_ACEXT_CUDA version" logs/sglang_server_*.log  # 应见 "10
 - **算子 profile + GEMV 映射**: [`docs/04_PROFILE.md`](docs/04_PROFILE.md)
 - **量化策略 + recipe**: [`docs/05_QUANT.md`](docs/05_QUANT.md)
 - **各对照组复现命令**: [`docs/06_REPRODUCE_DETAIL.md`](docs/06_REPRODUCE_DETAIL.md)
+- **官方评估脚本**: [`files/benchmark_public.py`](files/benchmark_public.py)（含中文 + markdown + multiline extractor，提交前用于 en+cn 双数据集校验）
+- **ViT CG 修复独立成果**: [`vit_graph_optimization.md`](vit_graph_optimization.md)
 - **历史归档** (未删除但不再维护): `.archive/` 目录
 
 ---
@@ -271,7 +281,10 @@ PPU/
 ├── README_REPRODUCE.md                # ← 你正在看的文件
 ├── EXPERIMENT.md                      # 完整实验日志 (按时间)
 ├── evaluation_wrapper.py              # 评测入口(契约文件,接口不变)
-├── benchmark_public.py                # 本地调试脚本
+├── files/                             # 官方评估脚本（与 DNDX 官方仓库同步）
+│   ├── README.md
+│   └── benchmark_public.py            # 官方评估脚本：3 个 extractor regex + 中文 + markdown + multiline
+├── benchmark_public.py                # 本地调试脚本(保留,内容与 files/ 同步)
 ├── sglang_launcher.py                 # ENV-only launcher (替代 runpy)
 ├── recipes/                           # 量化 recipe YAML
 ├── profile_results/                   # asys profile CSV (G组 BF16 vs INT8)
