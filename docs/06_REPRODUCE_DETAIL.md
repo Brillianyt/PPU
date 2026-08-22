@@ -1,86 +1,28 @@
-# 06. 各对照组详细复现命令
+# 06. 各对照组精确复现命令
 
-> 快速复现见 [`../README_REPRODUCE.md`](../README_REPRODUCE.md) §2。
-> 本文件是每个对照组的精确启动参数 + 预期指标。
+> 快速复现见 [`../README_REPRODUCE.md`](../README_REPRODUCE.md) §2(SSOT)。
+> 本文件是**精确启动参数 + patch 步骤**——和 README_REPRODUCE 配合使用。
 
 ## 6.1 共同前置
 
 ```bash
-pkill -9 -f "sglang.launch_server\|sglang::scheduler" 2>/dev/null; sleep 5
+# 杀旧 server
+pkill -9 -f "sglang.launch_server\|sglang::scheduler\|sglang::detokenizer" 2>/dev/null
+sleep 5
+
+# 准备目录
 mkdir -p /mnt/workspace/PPU/logs
+mkdir -p /mnt/workspace/PPU/result_repro
 ```
 
-## 6.2 bf16 路径
+## 6.2 G 组 BF16 baseline (无 patch)
 
-### A. sglang triton baseline
-
-```bash
-python3 -u -m sglang.launch_server \
-  --model-path /mnt/workspace/Qwen3.5-2B \
-  --host 127.0.0.1 --port 8999 \
-  --trust-remote-code --tp-size 1 \
-  --attention-backend triton \
-  --enable-multimodal \
-  --dtype bfloat16 \
-  --mem-fraction-static 0.85 \
-  > logs/sglang_triton_8999.log 2>&1 &
-```
-
-预期: acc 0.80, TTFT 419 ms, tput 284 tok/s (20 样本)。
-
-### B. fa3 (无 FLA)
+> 无需 patch 部署,直接启就行。这是对照基线。
 
 ```bash
-python3 -u -m sglang.launch_server \
-  --model-path /mnt/workspace/Qwen3.5-2B \
-  --host 127.0.0.1 --port 8999 \
-  --trust-remote-code --tp-size 1 \
-  --attention-backend fa3 \
-  --enable-multimodal \
-  --dtype bfloat16 \
-  --mem-fraction-static 0.85 \
-  > logs/sglang_fa3_8999.log 2>&1 &
-```
-
-预期: acc 0.85, TTFT 313 ms, tput 279 tok/s (20 样本)。
-
-### C. fa3 + FLA=1
-
-```bash
-SGLANG_SAIL_FLA_CUDA=1 python3 -u -m sglang.launch_server \
-  --model-path /mnt/workspace/Qwen3.5-2B \
-  --host 127.0.0.1 --port 8999 \
-  --trust-remote-code --tp-size 1 \
-  --attention-backend fa3 \
-  --enable-multimodal \
-  --dtype bfloat16 \
-  --mem-fraction-static 0.85 \
-  > logs/sglang_fa1_8999.log 2>&1 &
-```
-
-预期: acc 0.85, TTFT 64 ms, tput 280 tok/s (20 样本)。
-
-### D. fa3 + FLA=1 + no-radix
-
-```bash
-SGLANG_SAIL_FLA_CUDA=1 python3 -u -m sglang.launch_server \
-  --model-path /mnt/workspace/Qwen3.5-2B \
-  --host 127.0.0.1 --port 8999 \
-  --trust-remote-code --tp-size 1 \
-  --attention-backend fa3 \
-  --enable-multimodal \
-  --dtype bfloat16 \
-  --mem-fraction-static 0.85 \
-  --disable-radix-cache \
-  > logs/sglang_fa1_noradix_8999.log 2>&1 &
-```
-
-预期: acc 0.85, TTFT 69 ms, tput 369 tok/s (20 样本)。
-
-### ⭐ G. 推荐配置 (fa3 + FLA=1 + no-radix + page=64)
-
-```bash
-SGLANG_SAIL_FLA_CUDA=1 python3 -u -m sglang.launch_server \
+PPU_SDK=/usr/local/PPU_SDK \
+SGLANG_SAIL_FLA_CUDA=1 \
+nohup python3 -u -m sglang.launch_server \
   --model-path /mnt/workspace/Qwen3.5-2B \
   --host 127.0.0.1 --port 8999 \
   --trust-remote-code --tp-size 1 \
@@ -90,138 +32,199 @@ SGLANG_SAIL_FLA_CUDA=1 python3 -u -m sglang.launch_server \
   --mem-fraction-static 0.85 \
   --disable-radix-cache \
   --page-size 64 \
-  > logs/sglang_g_group_8999.log 2>&1 &
+  --log-level info \
+  > /mnt/workspace/PPU/logs/sglang_g_group_8999.log 2>&1 &
+
+# 等就绪
+for i in $(seq 1 30); do
+  curl -s http://127.0.0.1:8999/health_generate --max-time 2 >/dev/null \
+    && { echo "ready after $((i*5))s"; break; }
+  sleep 5
+done
+
+# 跑分(用评价入口)
+python3 /mnt/workspace/PPU/benchmark_public.py \
+  --dataset-path /mnt/workspace/datasets/mmbench/mmbench_dev_en.tsv \
+  --model-path /mnt/workspace/Qwen3.5-2B \
+  --backend sglang --num-samples 100 --warmup-samples 8 \
+  --output /mnt/workspace/PPU/result_repro/g_group_100.json
 ```
 
-预期: acc 0.85, TTFT 64.7 ms, tput 369 tok/s (20 样本);500 样本: acc 0.810, TTFT 73.3 ms, tput 357 tok/s。
+**预期**: acc 0.78 / TTFT median 73 ms / throughput 357 tok/s (500 样本统计稳态)。
 
-### E. G + chunked-prefill-size 2048
+## 6.3 Patch 部署 (6 类共 10 文件, 必装)
+
+> 详见 [`01_ENVIRONMENT.md`](01_ENVIRONMENT.md) §1.10。复制 A-F 完整块即可。
 
 ```bash
-# 在 G 组命令基础上追加:
---chunked-prefill-size 2048
+cd /mnt/workspace/PPU
+
+# A/B/C/E — sglang 9 文件
+cp -rv gemv_optimization/sglang-for-sail/python/sglang/* \
+        /usr/local/lib/python3.12/site-packages/sglang/
+
+# D — DeepGEMM 3 文件
+cp -rv gemv_optimization/DeepGEMM-for-sail/deep_gemm/* \
+        /usr/local/lib/python3.12/site-packages/deep_gemm/
+
+# F — Inductor RoPE hook (1 文件 + platforms/ppu.py 一行 import)
+cp -v inductor_hook_PPU/hook/ppu_rotary_hooks.py \
+      /usr/local/lib/python3.12/site-packages/sglang/srt/hardware_backend/ppu/attention/ppu_rotary_hooks.py
+grep -q "ppu_rotary_hooks" /usr/local/lib/python3.12/site-packages/sglang/srt/platforms/ppu.py \
+  || sed -i '/ppu_flashmla_hooks/a\    import sglang.srt.hardware_backend.ppu.attention.ppu_rotary_hooks  # noqa: F401' \
+        /usr/local/lib/python3.12/site-packages/sglang/srt/platforms/ppu.py
+
+# 清 __pycache__
+rm -rf /usr/local/lib/python3.12/site-packages/sglang/srt/{layers/quantization,layers/deep_gemm_wrapper,models,hardware_backend/ppu/attention,platforms}/__pycache__
+rm -rf /usr/local/lib/python3.12/site-packages/deep_gemm/{,jit_kernels}/__pycache__
 ```
 
-预期: acc 0.85, TTFT 69.9 ms, tput 375 tok/s (20 样本,几乎与 G 等价)。
-
-## 6.3 INT8 路径
-
-### 前置: 应用 patches
+### 验证 6 类 patch
 
 ```bash
-cp -rv /mnt/workspace/patches/sglang/* /usr/local/lib/python3.12/site-packages/sglang/
-cp -rv /mnt/workspace/patches/deep_gemm/* /usr/local/lib/python3.12/site-packages/deep_gemm/
+# A
+grep -c "SGLANG_SAIL_USE_GEMV" /usr/local/lib/python3.12/site-packages/sglang/srt/environ.py   # ≥ 1
+# B
+grep -c "gemv_int8_i8i8bf16" /usr/local/lib/python3.12/site-packages/sglang/srt/layers/quantization/w8a8_int8.py  # ≥ 4
+# C — 文件存在
+ls /usr/local/lib/python3.12/site-packages/sglang/srt/layers/deep_gemm_wrapper/{compile_utils,entrypoint}.py
+# D — 文件存在
+ls /usr/local/lib/python3.12/site-packages/deep_gemm/jit_kernels/gemv_int8.py
+# E1
+grep -c "max_context_len" /usr/local/lib/python3.12/site-packages/sglang/srt/models/qwen3_vl.py  # ≥ 2
+# E2
+grep -c "ppu_vision_flash_attn_varlen_func" \
+  /usr/local/lib/python3.12/site-packages/sglang/srt/hardware_backend/ppu/attention/ppu_fa3_hooks.py  # ≥ 1
+# F1
+ls /usr/local/lib/python3.12/site-packages/sglang/srt/hardware_backend/ppu/attention/ppu_rotary_hooks.py
+# F2
+grep "ppu_rotary_hooks" /usr/local/lib/python3.12/site-packages/sglang/srt/platforms/ppu.py   # ≥ 1
 ```
 
-### INT8 §26 (fa3 + FLA=1 + DeepGEMM tuned)
+**行为陷阱(影响结果解读,见 [`01_ENVIRONMENT.md`](01_ENVIRONMENT.md) §1.11)**:
+
+| 行为 | 影响 |
+|---|---|
+| PPU fork 默认开 ACEXT (`SGLANG_SAIL_USE_ACEXT_CUDA=True`) | 实际跑的是 ACEXT 路径,不是 README 行号上的 GEMV 路径 |
+| PPU fork 在 VLM 模型下自动 `disable_piecewise_cuda_graph=True` | PiCG 收益不可在 VLM 工作负载上复现 |
+| 评估 TTFT 用 **median** | 100 样本 mean 73-280 ms 是尾部冷启动拉高的;median 63 ms 才是稳态 |
+
+## 6.4 R6 / R8 启动 (走 wrapper)
+
+> 比赛提交件 = `evaluation_wrapper.py`,**不需要手工启 server**,让 wrapper 在
+> `_SGLangServer._launch()` 里自动启。
+
+### R6 (极致 TTFT+acc,triton_attn backend) ⭐ 推荐
 
 ```bash
-# Step 1: 启动 server
-SGLANG_SAIL_FLA_CUDA=1 python3 -u -m sglang.launch_server \
-  --model-path /mnt/workspace/models/Qwen_quant/Qwen3.5-2B-AMQ-QKV-T015 \
-  --host 127.0.0.1 --port 8999 \
-  --trust-remote-code --tp-size 1 \
-  --attention-backend fa3 --enable-multimodal \
-  --quantization w8a8_int8 --dtype bfloat16 \
-  --mem-fraction-static 0.85 \
-  --page-size 64 --disable-radix-cache \
-  --log-level info > logs/int8_fa3_fla1.log 2>&1 &
-
-# Step 2: 等就绪,跑一些请求预热
-# ... 跑 ~30 个请求 ...
-
-# Step 3: SIGINT 给 scheduler (不是 launch_server!),dump tunner 候选
-SCHED_PID=$(pgrep -f "sglang::scheduler")
-kill -INT $SCHED_PID
-
-# Step 4: 跑 tuner (与 serving 并行)
-python3 -m sglang.tune_deepgemm_int8 --tp 1 > /tmp/tuner.log 2>&1 &
-
-# Step 5: tuner 完成 (~15-30 分钟) 后,重启 server,跑分
+SGLANG_EXTRA_ARGS="--mm-attention-backend triton_attn" \
+PPU_SDK=/usr/local/PPU_SDK \
+python3 -u /mnt/workspace/PPU/benchmark_public.py \
+  --dataset-path /mnt/workspace/datasets/mmbench/mmbench_dev_en.tsv \
+  --model-path /mnt/workspace/models/Qwen_quant/Qwen3.5-2B-S2-aggressive \
+  --backend sglang --num-samples 100 --warmup-samples 8 \
+  --output /mnt/workspace/PPU/result_repro/r6_en_100.json
 ```
 
-预期 (500 样本): acc 0.808-0.822, TTFT 78 ms, tput 358 tok/s。
+**预期**(en 100,warmup 8):
+- accuracy: **0.74** (0.78 baseline, −4pp 不显著)
+- TTFT median: **63 ms**
+- throughput: **429 tok/s**
 
-### ⭐ S2+ACEXT+pCG (推荐冲吞吐方案)
+### R8 (极致 TPS,fa3 backend)
 
 ```bash
-SGLANG_SAIL_USE_ACEXT_CUDA=1 nohup python3 -u -m sglang.launch_server \
+# wrapper 默认 attention backend = fa3, SGLANG_EXTRA_ARGS 可以省略
+PPU_SDK=/usr/local/PPU_SDK \
+python3 -u /mnt/workspace/PPU/benchmark_public.py \
+  --dataset-path /mnt/workspace/datasets/mmbench/mmbench_dev_en.tsv \
+  --model-path /mnt/workspace/models/Qwen_quant/Qwen3.5-2B-S2-aggressive \
+  --backend sglang --num-samples 100 --warmup-samples 8 \
+  --output /mnt/workspace/PPU/result_repro/r8_en_100.json
+```
+
+**预期**(en 100,warmup 8):
+- accuracy: **0.73**
+- TTFT median: **66 ms**
+- throughput: **434 tok/s**
+
+### 手工启 server 命令(无需 wrapper)
+
+如需跳过 wrapper 直接手工启(便于调试):
+
+```bash
+cd /mnt/workspace/PPU
+
+SGLANG_EXTRA_ARGS="--mm-attention-backend triton_attn" \
+PPU_SDK=/usr/local/PPU_SDK \
+SGLANG_VIT_ENABLE_CUDA_GRAPH=1 \
+SGLANG_CUDA_GRAPH_MAX_BS=16 \
+SGLANG_SAIL_USE_ACEXT_CUDA=0 \
+SGLANG_SAIL_USE_GEMV=1 \
+SGLANG_SAIL_GEMV_M_MAX=8 \
+SGLANG_SAIL_GEMV_WARMUP_ON_LOAD=1 \
+SGLANG_SAIL_PREFILL_BF16=1 \
+SGLANG_SAIL_FLA_CUDA=1 \
+SGLANG_SAIL_DEEPGEMM_DENSE=1 \
+nohup python3 -u -m sglang.launch_server \
   --model-path /mnt/workspace/models/Qwen_quant/Qwen3.5-2B-S2-aggressive \
   --host 127.0.0.1 --port 8999 \
   --trust-remote-code --tp-size 1 \
-  --attention-backend fa3 --enable-multimodal \
+  --attention-backend fa3 \
+  --enable-multimodal \
   --quantization w8a8_int8 \
-  --dtype bfloat16 --mem-fraction-static 0.75 \
-  --page-size 64 --disable-radix-cache \
+  --dtype bfloat16 \
+  --mem-fraction-static 0.75 \
+  --disable-radix-cache \
+  --page-size 64 \
   --enable-piecewise-cuda-graph \
   --piecewise-cuda-graph-compiler eager \
-  --mm-attention-backend fa3 \
-  --cuda-graph-max-bs 256 \
-  --log-level info > logs/sglang_s2_acext_8999.log 2>&1 &
+  --mm-attention-backend triton_attn \
+  --log-level info \
+  > /mnt/workspace/PPU/logs/sglang_r6_8999.log 2>&1 &
 ```
 
-预期 (100 样本): en acc 0.76 / cn acc 0.82, TTFT 稳态 78 ms, tput 410 tok/s。
+> ⚠️ `SGLANG_SAIL_USE_ACEXT_CUDA=0` 实际无效(PPU fork 强制设为 1),见
+> `01_ENVIRONMENT.md` §1.11。
 
-## 6.4 跑分
+## 6.5 CN 数据集对照 (R6 同配置, 验证 INT8 零精度损失)
 
 ```bash
-python3 benchmark_public.py \
-  --dataset-path /mnt/workspace/datasets/mmbench/mmbench_dev_en.tsv \
-  --model-path /mnt/workspace/Qwen3.5-2B \
-  --backend sglang --num-samples 20 \
-  --warmup-samples 2 \
-  --output result_dev_en_g_group_20.json
+SGLANG_EXTRA_ARGS="--mm-attention-backend triton_attn" \
+PPU_SDK=/usr/local/PPU_SDK \
+python3 -u /mnt/workspace/PPU/benchmark_public.py \
+  --dataset-path /mnt/workspace/datasets/mmbench/mmbench_dev_cn.tsv \
+  --model-path /mnt/workspace/models/Qwen_quant/Qwen3.5-2B-S2-aggressive \
+  --backend sglang --num-samples 100 --warmup-samples 8 \
+  --output /mnt/workspace/PPU/result_repro/r6_cn_100.json
 ```
 
-中文换 `--dataset-path /mnt/workspace/datasets/mmbench/mmbench_dev_cn.tsv`。
+**预期**: acc **0.82**(= BF16 baseline,**INT8 量化零精度损失**)。
 
-## 6.5 算子 profile 复现
+## 6.6 算子 profile 复现 (asys)
 
+> 见 [`05_KERNEL_PROFILE.md`](05_KERNEL_PROFILE.md) §5.1 完整流程。
+
+快速复用:
 ```bash
-# 找 scheduler PID
 SCHED_PID=$(pgrep -f "sglang::scheduler" | head -1)
-
-# 60s trace
 asys attach -t hggc -s process-tree --force-overwrite true \
-  -o profile_results/monitor_60s.asysrep --duration 60 $SCHED_PID
+  -o /mnt/workspace/PPU/profile_results/60s.asysrep --duration 60 $SCHED_PID
 
-# 必须并发请求,否则 trace 数据很少
-nohup python3 -u -c "
-import requests, csv, random, concurrent.futures
-random.seed(20260625)
-with open('/mnt/workspace/datasets/mmbench/mmbench_dev_en.tsv') as f:
-    samples = list(csv.DictReader(f, delimiter='\t'))
-def run(i):
-    s = samples[i]
-    requests.post('http://127.0.0.1:8999/v1/chat/completions',
-        json={'model': 'Qwen3.5-2B', 'messages': [{'role':'user','content':[
-            {'type':'image_url','image_url':{'url':'data:image/jpeg;base64,xxx'}},
-            {'type':'text','text':s['question']}]}],
-            'max_tokens':256,'temperature':0,'stream':False}, timeout=120)
-with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
-    list(ex.map(run, range(50)))
-" &
-wait $!
-
-# 导出汇总
-asys stats -r ppu_op_type_sum -f csv --force-overwrite true -o . profile_results/monitor_60s.asysrep
-asys stats -r ppu_op_kernel_breakdown -f csv --force-overwrite true -o . profile_results/monitor_60s.asysrep
+# trace 期间并发 50 个请求(同 6.4 evaluator 期间跑即可)
+asys stats -r ppu_op_kernel_breakdown -f csv --force-overwrite true -o . \
+  /mnt/workspace/PPU/profile_results/60s.asysrep
 ```
 
-## 6.6 复现 GEMV 定位分析
+## 6.7 历史对照表 (100 样本)
 
-```bash
-python3 << 'EOF'
-import csv
-target = "void gemvt_op<cutlass::bfloat16_t, float, cutlass::bfloat16_t, int4, int4, 32, 4, 1, 2, 1, 1"
-grids = {}
-with open('profile_results/g_group_60s_hggc_kern_exec_trace.csv') as f:
-    for row in csv.DictReader(f):
-        if target in row['Kernel Name']:
-            g = row['GridXYZ']
-            grids[g] = grids.get(g, 0) + 1
-print("Top GEMV grid distribution:")
-for g, c in sorted(grids.items(), key=lambda x: -x[1]):
-    print(f"  grid={g}: {c}")
-EOF
-```
+> 数字均来自 [`02_RESULTS.md`](02_RESULTS.md) §2.2 / §2.3。复现命令同上,仅数据集或样本量不同。
+
+| 编号 | 模型 | attention | samples | acc | TTFT | tput | 备注 |
+|---|---|---|---|---|---|---|---|
+| G-baseline | bf16 | fa3 | 100 | 0.78 | 73 ms | 357 tok/s | 对照基线,无 patch |
+| G-baseline-500 | bf16 | fa3 | 500 | 0.81 | 73 ms | 357 tok/s | 500 样本稳态 |
+| R6 | S2-INT8 | triton_attn | 100 | 0.74 | 63 ms | 429 tok/s | ⭐ 推荐 |
+| R7 | S2-INT8 | triton_attn | 200 | 0.72 | 66 ms | 429 tok/s | 200 样本稳定性 |
+| R8 | S2-INT8 | fa3 | 100 | 0.73 | 66 ms | 434 tok/s | 极致 TPS |
+| R6-cn | S2-INT8 | triton_attn | 100 | **0.82** | 65 ms | 421 tok/s | cn 上 INT8 零精度损失 |
