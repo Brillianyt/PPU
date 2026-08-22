@@ -213,7 +213,9 @@ class _SGLangServer:
         #   - TPS 持平
         #   - acc 仅 -4pp (0.75 → 0.71)
         # 关闭(对照实验):SGLANG_VIT_ENABLE_CUDA_GRAPH=0
-        env["SGLANG_VIT_ENABLE_CUDA_GRAPH"] = "1"
+        # 注:SGLANG_DISABLE_CUDA_GRAPH=1 时连同 ViT CG 一起关(否则无 --mm-attention-backend)
+        if os.environ.get("SGLANG_DISABLE_CUDA_GRAPH", "0") != "1":
+            env.setdefault("SGLANG_VIT_ENABLE_CUDA_GRAPH", "1")
         env.setdefault("SGLANG_MM_FEATURE_CACHE_MB", "4096")
         env.setdefault("SGLANG_VLM_CACHE_SIZE_MB", "0")
 
@@ -227,10 +229,13 @@ class _SGLangServer:
         env["SGLANG_SAIL_PREFILL_BF16"] = "1"
 
         # === ACEXT(与 GEMV 互斥接管 dense linear)===
-        # §37 实测 ACEXT 比 GEMV 又快 +2.4% (423 vs 418 tok/s),且来源是
-        # PPU sgl_kernel 内置(`sgl_kernel.int8_gemm`),无 patch 成本。
-        # 默认开启;关 ACEXT 回退到 GEMV: SGLANG_SAIL_USE_ACEXT_CUDA=0
-        use_acext = os.environ.get("SGLANG_SAIL_USE_ACEXT_CUDA", "1") == "1"
+        # 默认走 GEMV:R8 record (TPS 434.05, /tmp/r8.log Aug 21 20:30) 是
+        # GEMV + PiCG ON + ViT CG ON 跑出来的。§37 测 ACEXT 423 / GEMV 418
+        # 是无 PiCG 的纯 dense linear 对比;一旦 PiCG 接管,ACEXT 的
+        # sgl_kernel.int8_gemm 会被 PiCG 的 persistent-kernel 路径 bypass,
+        # GEMV 反而赢(434 vs ACEXT + PiCG 已知 410.x)。
+        # 切回 ACEXT:export SGLANG_SAIL_USE_ACEXT_CUDA=1
+        use_acext = os.environ.get("SGLANG_SAIL_USE_ACEXT_CUDA", "0") == "1"
         env["SGLANG_SAIL_USE_ACEXT_CUDA"] = "1" if use_acext else "0"
 
         # === DEBUG:GEMV 是否真在 CG capture/replay 中被调用 ===
@@ -278,12 +283,14 @@ class _SGLangServer:
         )
 
     def _warmup(self) -> None:
-        # A tiny text-only chat completion forces sglang to compile/warm any
-        # remaining lazy kernels before the first measured request.
+        # A text-only chat completion matching the real workload generation
+        # length forces sglang to compile/warm any remaining lazy kernels
+        # (CUDA graph capture, piecewise-graphs, kv allocator) before the
+        # first measured request.
         payload = {
             "model": self.served_model,
             "messages": [{"role": "user", "content": "ok"}],
-            "max_tokens": 4,
+            "max_tokens": 256,
             "temperature": 0.0,
             "top_p": 1.0,
             "stream": False,

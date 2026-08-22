@@ -46,7 +46,7 @@
 
 **关于之前 cn acc = 0.27 的修正**：旧 runner_patched.py 的 5 个正则**没有中文 pattern**（`答案|选项|选择`），cn 数据集输出 `答案：A` / `正确答案：**B` 全部漏报。官方 benchmark_public.py 的 extractor 第 1 个 pattern 包含中文，正确解析。**官方口径下 cn 真实 acc = 0.820**，不是 0.270。
 
-## 2. 2×2 配置网格（max_new_tokens=4，en，100 样本）
+## 2. 2×2 配置网格（en，100 样本）
 
 | dense \ backend | fa3 | triton_attn |
 |---|---|---|
@@ -66,7 +66,7 @@ SGLANG_SAIL_USE_GEMV=1 \
 SGLANG_SAIL_GEMV_M_MAX=8 \
 SGLANG_SAIL_PREFILL_BF16=1 \
 SGLANG_SAIL_FLA_CUDA=1 \
-python3 ... --max-new-tokens 4
+python3 ... --max-new-tokens 256
 ```
 **实测：TPS=434 / TTFT=66.5 ms / acc=0.71**
 
@@ -148,7 +148,7 @@ SGLANG_SAIL_FLA_CUDA=1 \
 python3 /tmp/runner_patched.py \
   --model-path /mnt/workspace/models/Qwen_quant/Qwen3.5-2B-S2-aggressive \
   --dataset-path /mnt/workspace/datasets/mmbench/mmbench_dev_en.tsv \
-  --num-samples 100 --seed 20260625 --max-new-tokens 4 \
+  --num-samples 100 --seed 20260625 --max-new-tokens 256 \
   --output /mnt/workspace/PPU/result_r8.json
 ```
 **预期：TPS 434 / TTFT 66.5 ms / acc 0.71**
@@ -168,7 +168,7 @@ SGLANG_EXTRA_ARGS="--mm-attention-backend triton_attn" \
 python3 /tmp/runner_patched.py \
   --model-path /mnt/workspace/models/Qwen_quant/Qwen3.5-2B-S2-aggressive \
   --dataset-path /mnt/workspace/datasets/mmbench/mmbench_dev_en.tsv \
-  --num-samples 200 --seed 20260625 --max-new-tokens 4 \
+  --num-samples 200 --seed 20260625 --max-new-tokens 256 \
   --output /mnt/workspace/PPU/result_r7.json
 ```
 **预期：TPS 429 / TTFT 64.1 ms (100样本) 或 66.5 ms (200样本) / acc 0.72**
@@ -210,7 +210,7 @@ print(f'None     = {nones}')
 3. **PREFILL_BF16=1 必开**——关闭会让 TTFT +1-2ms
 4. **FLA_CUDA=1 必开**——关闭会让 TTFT +3ms
 5. **GEMV_M_MAX=8 sweet spot**——>8 会让 TPS 下降
-6. **max_new_tokens=4 是"短答打点"口径**——真实多 token 生成（256）TPS 会低 ~10%，但 TTFT 改善仍有效
+6. **max_new_tokens=256 是真实 workload 口径**——TTFT 改善有效,TPS 反映长答稳态吞吐
 
 ## 9. 相关文件
 

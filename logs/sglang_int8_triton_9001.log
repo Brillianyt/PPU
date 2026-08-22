@@ -1,1020 +1,0 @@
-/usr/local/lib/python3.12/site-packages/requests/__init__.py:113: RequestsDependencyWarning: urllib3 (1.26.16) or chardet (6.0.0.post1)/charset_normalizer (2.0.12) doesn't match a supported version!
-  warnings.warn(
-/usr/local/lib/python3.12/site-packages/sglang/launch_server.py:51: UserWarning: 'python -m sglang.launch_server' is still supported, but 'sglang serve' is the recommended entrypoint.
-  Example: sglang serve --model-path <model> [options]
-  warnings.warn(
-[2026-08-14 19:06:09] INFO server_args.py:1152: Disable custom allreduce and use pccl allreduce on ppu for better perf. Launch server with --enable-custom-all-reduce to force use custom allreduce
-[2026-08-14 19:06:11] INFO model_config.py:1015: Using CLI-specified quantization (w8a8_int8) which is compatible with HF config quant_method (compressed-tensors).
-[2026-08-14 19:06:11] WARNING common.py:3867: Current acext version: 1050100
-[2026-08-14 19:06:11] WARNING common.py:3851: acext token limit: 4096
-/usr/local/lib/python3.12/site-packages/pydantic/_internal/_fields.py:160: UserWarning: Field "model_info" has conflict with protected namespace "model_".
-
-You may be able to resolve this warning by setting `model_config['protected_namespaces'] = ()`.
-  warnings.warn(
-[2026-08-14 19:06:12] server_args=ServerArgs(model_path='./quant/Qwen3.5-2B-W8A8', tokenizer_path='./quant/Qwen3.5-2B-W8A8', tokenizer_mode='auto', tokenizer_worker_num=1, skip_tokenizer_init=False, load_format='auto', model_loader_extra_config='{}', trust_remote_code=True, context_length=None, is_embedding=False, enable_multimodal=True, revision=None, model_impl='auto', host='127.0.0.1', port=9001, fastapi_root_path='', grpc_mode=False, skip_server_warmup=False, warmups=None, nccl_port=None, checkpoint_engine_wait_weights_before_ready=False, ssl_keyfile=None, ssl_certfile=None, ssl_ca_certs=None, ssl_keyfile_password=None, enable_ssl_refresh=False, dtype='bfloat16', quantization='w8a8_int8', quantization_param_path=None, kv_cache_dtype='auto', enable_fp32_lm_head=False, modelopt_quant=None, modelopt_checkpoint_restore_path=None, modelopt_checkpoint_save_path=None, modelopt_export_path=None, quantize_and_serve=False, rl_quant_profile=None, mem_fraction_static=0.85, max_running_requests=None, max_queued_requests=None, max_total_tokens=None, chunked_prefill_size=8192, enable_dynamic_chunking=False, max_prefill_tokens=16384, prefill_max_requests=None, schedule_policy='fcfs', enable_priority_scheduling=False, disable_priority_preemption=False, default_priority_value=None, abort_on_priority_when_disabled=False, schedule_low_priority_values_first=False, priority_scheduling_preemption_threshold=10, schedule_conservativeness=1.0, page_size=64, swa_full_tokens_ratio=0.8, disable_hybrid_swa_memory=False, radix_eviction_policy='lru', enable_prefill_delayer=False, prefill_delayer_max_delay_passes=30, prefill_delayer_token_usage_low_watermark=None, prefill_delayer_forward_passes_buckets=None, prefill_delayer_wait_seconds_buckets=None, device='cuda', tp_size=1, pp_size=1, pp_max_micro_batch_size=None, pp_async_batch_depth=0, stream_interval=1, stream_response_default_include_usage=False, incremental_streaming_output=False, enable_streaming_session=False, random_seed=852651633, constrained_json_whitespace_pattern=None, constrained_json_disable_any_whitespace=False, watchdog_timeout=3600.0, soft_watchdog_timeout=None, dist_timeout=3600, download_dir=None, model_checksum=None, base_gpu_id=0, gpu_id_step=1, sleep_on_idle=False, use_ray=False, custom_sigquit_handler=None, log_level='info', log_level_http=None, log_requests=False, log_requests_level=2, log_requests_format='text', log_requests_target=None, uvicorn_access_log_exclude_prefixes=[], crash_dump_folder=None, show_time_cost=False, enable_metrics=False, enable_mfu_metrics=False, enable_metrics_for_all_schedulers=False, tokenizer_metrics_custom_labels_header='x-custom-labels', tokenizer_metrics_allowed_custom_labels=None, extra_metric_labels=None, bucket_time_to_first_token=None, bucket_inter_token_latency=None, bucket_e2e_request_latency=None, collect_tokens_histogram=False, prompt_tokens_buckets=None, generation_tokens_buckets=None, gc_warning_threshold_secs=0.0, decode_log_interval=40, enable_request_time_stats_logging=False, kv_events_config=None, enable_trace=False, otlp_traces_endpoint='localhost:4317', export_metrics_to_file=False, export_metrics_to_file_dir=None, api_key=None, admin_api_key=None, served_model_name='./quant/Qwen3.5-2B-W8A8', weight_version='default', chat_template=None, hf_chat_template_name=None, completion_template=None, file_storage_path='sglang_storage', enable_cache_report=False, reasoning_parser=None, tool_call_parser=None, tool_server=None, sampling_defaults='model', dp_size=1, load_balance_method='round_robin', attn_cp_size=1, moe_dp_size=1, dist_init_addr=None, nnodes=1, node_rank=0, json_model_override_args='{}', preferred_sampling_params=None, enable_lora=None, enable_lora_overlap_loading=None, max_lora_rank=None, lora_target_modules=None, lora_paths=None, max_loaded_loras=None, max_loras_per_batch=8, lora_eviction_policy='lru', lora_backend='csgmv', max_lora_chunk_size=16, experts_shared_outer_loras=None, attention_backend='triton', decode_attention_backend=None, prefill_attention_backend=None, sampling_backend='flashinfer', grammar_backend='xgrammar', mm_attention_backend=None, fp8_gemm_runner_backend='auto', fp4_gemm_runner_backend='auto', nsa_prefill_backend=None, nsa_decode_backend=None, disable_flashinfer_autotune=False, mamba_backend='triton', speculative_algorithm=None, speculative_draft_model_path=None, speculative_draft_model_revision=None, speculative_draft_load_format=None, speculative_num_steps=None, speculative_eagle_topk=None, speculative_num_draft_tokens=None, speculative_accept_threshold_single=1.0, speculative_accept_threshold_acc=1.0, speculative_token_map=None, speculative_attention_mode='prefill', speculative_draft_attention_backend=None, speculative_moe_runner_backend='auto', speculative_moe_a2a_backend=None, speculative_draft_model_quantization='w8a8_int8', speculative_ngram_min_bfs_breadth=1, speculative_ngram_max_bfs_breadth=10, speculative_ngram_match_type='BFS', speculative_ngram_max_trie_depth=18, speculative_ngram_capacity=10000000, enable_multi_layer_eagle=False, ep_size=1, moe_a2a_backend='none', moe_runner_backend='auto', flashinfer_mxfp4_moe_precision='default', enable_flashinfer_allreduce_fusion=False, enforce_disable_flashinfer_allreduce_fusion=False, enable_aiter_allreduce_fusion=False, deepep_mode='auto', ep_num_redundant_experts=0, ep_dispatch_algorithm=None, init_expert_location='trivial', enable_eplb=False, eplb_algorithm='auto', eplb_rebalance_num_iterations=1000, eplb_rebalance_layers_per_chunk=None, eplb_min_rebalancing_utilization_threshold=1.0, expert_distribution_recorder_mode=None, expert_distribution_recorder_buffer_size=1000, enable_expert_distribution_metrics=False, deepep_config=None, moe_dense_tp_size=None, elastic_ep_backend=None, enable_elastic_expert_backup=False, mooncake_ib_device=None, max_mamba_cache_size=None, mamba_ssm_dtype=None, mamba_full_memory_ratio=0.9, mamba_scheduler_strategy='no_buffer', mamba_track_interval=256, linear_attn_backend='triton', linear_attn_decode_backend=None, linear_attn_prefill_backend=None, enable_hierarchical_cache=False, hicache_ratio=2.0, hicache_size=0, hicache_write_policy='write_through', hicache_io_backend='kernel', hicache_mem_layout='layer_first', hicache_storage_backend=None, hicache_storage_prefetch_policy='best_effort', hicache_storage_backend_extra_config=None, enable_hisparse=False, hisparse_config=None, enable_lmcache=False, kt_weight_path=None, kt_method='AMXINT4', kt_cpuinfer=None, kt_threadpool_count=2, kt_num_gpu_experts=None, kt_max_deferred_experts_per_token=None, dllm_algorithm=None, dllm_algorithm_config=None, enable_double_sparsity=False, ds_channel_config_path=None, ds_heavy_channel_num=32, ds_heavy_token_num=256, ds_heavy_channel_type='qk', ds_sparse_decode_threshold=4096, cpu_offload_gb=0, offload_group_size=-1, offload_num_in_group=1, offload_prefetch_step=1, offload_mode='cpu', multi_item_scoring_delimiter=None, disable_radix_cache=True, cuda_graph_max_bs=256, cuda_graph_bs=[1, 2, 4, 8, 12, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144, 152, 160, 168, 176, 184, 192, 200, 208, 216, 224, 232, 240, 248, 256], disable_cuda_graph=False, disable_cuda_graph_padding=False, enable_profile_cuda_graph=False, enable_cudagraph_gc=False, enable_layerwise_nvtx_marker=False, enable_nccl_nvls=False, enable_symm_mem=False, disable_flashinfer_cutlass_moe_fp4_allgather=False, enable_tokenizer_batch_encode=False, disable_tokenizer_batch_decode=False, disable_outlines_disk_cache=False, disable_custom_all_reduce=True, enable_custom_all_reduce=False, enable_mscclpp=False, enable_torch_symm_mem=False, pre_warm_nccl=False, disable_overlap_schedule=False, enable_mixed_chunk=False, enable_dp_attention=False, enable_dp_lm_head=False, enable_two_batch_overlap=False, enable_single_batch_overlap=False, tbo_token_distribution_threshold=0.48, enable_torch_compile=False, disable_piecewise_cuda_graph=True, enforce_piecewise_cuda_graph=False, enable_torch_compile_debug_mode=False, torch_compile_max_bs=32, piecewise_cuda_graph_max_tokens=8192, piecewise_cuda_graph_tokens=[4, 8, 12, 16, 20, 24, 28, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256, 288, 320, 352, 384, 416, 448, 480, 512, 576, 640, 704, 768, 832, 896, 960, 1024, 1280, 1536, 1792, 2048, 2304, 2560, 2816, 3072, 3328, 3584, 3840, 4096, 4608, 5120, 5632, 6144, 6656, 7168, 7680, 8192], piecewise_cuda_graph_compiler='eager', torchao_config='', enable_nan_detection=False, enable_p2p_check=False, triton_attention_reduce_in_fp32=False, triton_attention_num_kv_splits=8, triton_attention_split_tile_size=None, num_continuous_decode_steps=1, delete_ckpt_after_loading=False, enable_memory_saver=False, enable_weights_cpu_backup=False, enable_draft_weights_cpu_backup=False, allow_auto_truncate=False, enable_custom_logit_processor=False, flashinfer_mla_disable_ragged=False, disable_shared_experts_fusion=False, disable_chunked_prefix_cache=False, disable_fast_image_processor=False, keep_mm_feature_on_device=False, enable_return_hidden_states=False, enable_return_routed_experts=False, scheduler_recv_interval=1, numa_node=None, enable_deterministic_inference=False, rl_on_policy_target=None, enable_attn_tp_input_scattered=False, gc_threshold=None, enable_nsa_prefill_context_parallel=False, nsa_prefill_cp_mode='round-robin-split', enable_fused_qk_norm_rope=False, enable_precise_embedding_interpolation=False, enable_fused_moe_sum_all_reduce=False, enable_prefill_context_parallel=False, prefill_cp_mode='in-seq-split', enable_dynamic_batch_tokenizer=False, dynamic_batch_tokenizer_batch_size=32, dynamic_batch_tokenizer_batch_timeout=0.002, debug_tensor_dump_output_folder=None, debug_tensor_dump_layers=None, debug_tensor_dump_input_file=None, debug_tensor_dump_inject=False, disaggregation_mode='null', disaggregation_transfer_backend='mooncake', disaggregation_bootstrap_port=8998, disaggregation_ib_device=None, disaggregation_decode_enable_offload_kvcache=False, num_reserved_decode_tokens=512, disaggregation_decode_polling_interval=1, encoder_only=False, language_only=False, encoder_transfer_backend='zmq_to_scheduler', encoder_urls=[], enable_adaptive_dispatch_to_encoder=False, custom_weight_loader=[], weight_loader_disable_mmap=False, remote_instance_weight_loader_seed_instance_ip=None, remote_instance_weight_loader_seed_instance_service_port=None, remote_instance_weight_loader_send_weights_group_ports=None, remote_instance_weight_loader_backend='nccl', remote_instance_weight_loader_start_seed_via_transfer_engine=False, engine_info_bootstrap_port=6789, modelexpress_config=None, enable_pdmux=False, pdmux_config_path=None, sm_group_num=8, enable_broadcast_mm_inputs_process=False, enable_prefix_mm_cache=False, mm_enable_dp_encoder=False, mm_process_config={}, limit_mm_data_per_request=None, enable_mm_global_cache=False, decrypted_config_file=None, decrypted_draft_config_file=None, forward_hooks=None)
-[2026-08-14 19:06:12] Using CLI-specified quantization (w8a8_int8) which is compatible with HF config quant_method (compressed-tensors).
-/usr/local/lib/python3.12/site-packages/requests/__init__.py:113: RequestsDependencyWarning: urllib3 (1.26.16) or chardet (6.0.0.post1)/charset_normalizer (2.0.12) doesn't match a supported version!
-  warnings.warn(
-/usr/local/lib/python3.12/site-packages/requests/__init__.py:113: RequestsDependencyWarning: urllib3 (1.26.16) or chardet (6.0.0.post1)/charset_normalizer (2.0.12) doesn't match a supported version!
-  warnings.warn(
-/usr/local/lib/python3.12/site-packages/megatron/core/tensor_parallel/layers.py:219: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
-  @custom_fwd
-/usr/local/lib/python3.12/site-packages/megatron/core/tensor_parallel/layers.py:249: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
-  @custom_bwd
-<SAIL>: skipping nsa indexer optimization, fallback to original path
-[2026-08-14 19:06:15] Ignore import error when loading sglang.srt.multimodal.processors.glmasr: cannot import name 'GlmAsrConfig' from 'transformers' (/usr/local/lib/python3.12/site-packages/transformers/__init__.py)
-[2026-08-14 19:06:16] Ignore import error when loading sglang.srt.models.glm_ocr: No module named 'transformers.models.glm_ocr'
-[2026-08-14 19:06:16] Ignore import error when loading sglang.srt.models.glm_ocr_nextn: No module named 'transformers.models.glm_ocr'
-[2026-08-14 19:06:16] Ignore import error when loading sglang.srt.models.glmasr: cannot import name 'GlmAsrConfig' from 'transformers' (/usr/local/lib/python3.12/site-packages/transformers/__init__.py)
-[2026-08-14 19:06:16] Using default HuggingFace chat template with detected content format: openai
-[2026-08-14 19:06:21] Using CLI-specified quantization (w8a8_int8) which is compatible with HF config quant_method (compressed-tensors).
-/usr/local/lib/python3.12/site-packages/megatron/core/tensor_parallel/layers.py:219: FutureWarning: `torch.cuda.amp.custom_fwd(args...)` is deprecated. Please use `torch.amp.custom_fwd(args..., device_type='cuda')` instead.
-  @custom_fwd
-/usr/local/lib/python3.12/site-packages/megatron/core/tensor_parallel/layers.py:249: FutureWarning: `torch.cuda.amp.custom_bwd(args...)` is deprecated. Please use `torch.amp.custom_bwd(args..., device_type='cuda')` instead.
-  @custom_bwd
-[2026-08-14 19:06:25] Ignore import error when loading sglang.srt.multimodal.processors.glmasr: cannot import name 'GlmAsrConfig' from 'transformers' (/usr/local/lib/python3.12/site-packages/transformers/__init__.py)
-[2026-08-14 19:06:25] Using CLI-specified quantization (w8a8_int8) which is compatible with HF config quant_method (compressed-tensors).
-[2026-08-14 19:06:25] Init torch distributed begin.
-[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
-[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
-[Gloo] Rank 0 is connected to 0 peer ranks. Expected number of connected peer ranks is : 0
-[2026-08-14 19:06:25] Init torch distributed ends. elapsed=0.03 s, mem usage=0.01 GB
-[2026-08-14 19:06:25] Ignore import error when loading sglang.srt.models.glm_ocr: No module named 'transformers.models.glm_ocr'
-[2026-08-14 19:06:25] Ignore import error when loading sglang.srt.models.glm_ocr_nextn: No module named 'transformers.models.glm_ocr'
-[2026-08-14 19:06:25] Ignore import error when loading sglang.srt.models.glmasr: cannot import name 'GlmAsrConfig' from 'transformers' (/usr/local/lib/python3.12/site-packages/transformers/__init__.py)
-[2026-08-14 19:06:25] Load weight begin. avail mem=95.62 GB
-[2026-08-14 19:06:25] Detected int8 checkpoint.
-[2026-08-14 19:06:25] Multimodal attention backend not set. Use triton_attn.
-[2026-08-14 19:06:25] Using triton_attn as multimodal attention backend.
-`torch_dtype` is deprecated! Use `dtype` instead!
-[2026-08-14 19:06:25] using attn output gate!
-<SAIL>: skipping nsa indexer optimization, fallback to original path
-Multi-thread loading shards:   0% Completed | 0/1 [00:00<?, ?it/s]Multi-thread loading shards: 100% Completed | 1/1 [00:00<00:00,  1.78it/s]Multi-thread loading shards: 100% Completed | 1/1 [00:00<00:00,  1.78it/s]
-[2026-08-14 19:06:26] Load weight end. elapsed=0.70 s, type=Qwen3_5ForConditionalGeneration, quant=compressed-tensors, avail mem=92.71 GB, mem usage=2.91 GB.
-[2026-08-14 19:06:26] Using KV cache dtype: torch.bfloat16
-[2026-08-14 19:06:26] Mamba Cache is allocated. max_mamba_cache_size: 2039, conv_state size: 1.26GB, ssm_state size: 35.86GB 
-[2026-08-14 19:06:26] KV Cache is allocated. #tokens: 3602624, K size: 20.61 GB, V size: 20.61 GB
-[2026-08-14 19:06:26] Memory pool end. avail mem=12.31 GB
-[2026-08-14 19:06:27] Linear attention kernel backend: decode=triton, prefill=triton
-[2026-08-14 19:06:27] Using hybrid linear attention backend for hybrid GDN models.
-[2026-08-14 19:06:27] GDN kernel dispatcher: decode=TritonGDNKernel, extend=TritonGDNKernel, verify=TritonGDNKernel packed_decode=True
-[2026-08-14 19:06:27] Capture cuda graph begin. This can take up to several minutes. avail mem=12.22 GB
-[2026-08-14 19:06:27] Capture cuda graph bs [1, 2, 4, 8, 12, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144, 152, 160, 168, 176, 184, 192, 200, 208, 216, 224, 232, 240, 248, 256]
-  0%|          | 0/36 [00:00<?, ?it/s]Capturing batches (bs=256 avail_mem=11.41 GB):   0%|          | 0/36 [00:00<?, ?it/s][2026-08-14 19:06:28] deepgemm start loading config......
-[2026-08-14 19:06:28] loading device_name_signature anonymous-250924-tp16,device_name=PPU-ZW810E-deepgemm_configs.json
-[2026-08-14 19:06:28] skipping device_name_signature anonymous-tp8,device_name=PPU-ZW810-deepgemm_configs.json
-[2026-08-14 19:06:28] skipping device_name_signature anonymous-tp16,device_name=PPU-ZW810-deepgemm_configs.json
-[2026-08-14 19:06:28] skipping device_name_signature FP4_MiniMax-M2.5.json
-[2026-08-14 19:06:28] loading device_name_signature ptg_Qwen3-235B-A22B-Instruct-2507-a8w8-tp8,device_name=PPU-ZW810E-deepgemm_configs.json
-[2026-08-14 19:06:28] loading device_name_signature anonymous-tp16,device_name=PPU-ZW810E-deepgemm_configs.json
-[2026-08-14 19:06:28] skipping device_name_signature ptg_Qwen3-235B-A22B-Instruct-2507-a8w8-tp8,device_name=PPU-ZW810-deepgemm_configs.json
-[2026-08-14 19:06:28] loading device_name_signature anonymous-tp8,device_name=PPU-ZW810E-deepgemm_configs.json
-[2026-08-14 19:06:28] skipping device_name_signature FP4_Kimi-K2.5.json
-[2026-08-14 19:06:28] loading device_name_signature DeepSeek-R1-0528-BF16-w8a8-int8-tp16,device_name=PPU-ZW810E-deepgemm_configs.json
-[2026-08-14 19:06:28] loading device_name_signature DeepSeek-R1-masked-0528-BF16-w8a8-int8-tp16,device_name=PPU-ZW810E-deepgemm_configs.json
-[2026-08-14 19:06:28] skipping device_name_signature FP4_gpt-oss.json
-[2026-08-14 19:06:28] skipping device_name_signature FP4_Qwen3.5-397B-A17B.json
-[2026-08-14 19:06:28] loading device_name_signature Qwen2.5-VL-72B-Instruct-int8-tp1,device_name=PPU-ZW810E-deepgemm_configs.json
-[2026-08-14 19:06:28] Entering DeepGEMM JIT Pre-Compile session. It may take a long time (typically 10-20 mins) if you have not run `sglang.compile_deep_gemm`. It is recommended to run `sglang.compile_deep_gemm` with same args as `sglang.launch_server` for pre-compilation to reduce the overhead if you have not run it before. For example: `python3 -m sglang.compile_deep_gemm --model deepseek-ai/DeepSeek-V3 --tp 8 --trust-remote-code`
-[2026-08-14 19:06:28] Try DeepGEMM JIT Compiling for <GEMM_NT_I8I8BF16> N=8192, K=2048, num_groups=1 with all Ms. It only takes a little time (typically 1 sec) if you have run `python3 -m sglang.compile_deep_gemm`. 
-[2026-08-14 19:06:28] Required memory for warmup: 0.296875GB, Available memory: 11.367339834570885GB
-
-DeepGEMM warmup:   0%|          | 0/16384 [00:00<?, ?it/s][AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.f5cfdb6a5efc/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.f5cfdb6a5efc/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.f5cfdb6a5efc/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   0%|          | 1/16384 [00:05<26:52:53,  5.91s/it][AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.da07317f3830/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.da07317f3830/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.da07317f3830/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   0%|          | 6/16384 [00:11<7:54:28,  1.74s/it] [AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.7d1876b34166/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.7d1876b34166/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.7d1876b34166/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   0%|          | 33/16384 [00:17<1:50:47,  2.46it/s][AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.81d5a6a50e19/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.81d5a6a50e19/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.81d5a6a50e19/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   1%|          | 128/16384 [00:23<34:46,  7.79it/s] [AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.539ffe894488/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.539ffe894488/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.539ffe894488/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   3%|▎         | 512/16384 [00:29<09:27, 27.97it/s][A
-DeepGEMM warmup:  10%|█         | 1674/16384 [00:29<01:56, 126.58it/s][A
-DeepGEMM warmup:  17%|█▋        | 2730/16384 [00:29<00:54, 251.85it/s][A
-DeepGEMM warmup:  24%|██▍       | 3893/16384 [00:29<00:28, 443.72it/s][A
-DeepGEMM warmup:  31%|███       | 5021/16384 [00:30<00:16, 698.62it/s][A
-DeepGEMM warmup:  38%|███▊      | 6180/16384 [00:30<00:09, 1052.71it/s][A
-DeepGEMM warmup:  45%|████▍     | 7328/16384 [00:30<00:05, 1515.50it/s][A
-DeepGEMM warmup:  52%|█████▏    | 8481/16384 [00:30<00:03, 2112.58it/s][A
-DeepGEMM warmup:  59%|█████▉    | 9630/16384 [00:30<00:02, 2848.51it/s][A
-DeepGEMM warmup:  66%|██████▌   | 10789/16384 [00:30<00:01, 3729.81it/s][A
-DeepGEMM warmup:  73%|███████▎  | 11927/16384 [00:30<00:00, 4692.75it/s][A
-DeepGEMM warmup:  80%|███████▉  | 13076/16384 [00:30<00:00, 5728.16it/s][A
-DeepGEMM warmup:  87%|████████▋ | 14231/16384 [00:30<00:00, 6768.23it/s][A
-DeepGEMM warmup:  94%|█████████▍| 15373/16384 [00:30<00:00, 7713.46it/s][A[2026-08-14 19:06:59] WARN: NOT calling deepgemm function since m=16384 >= max_m=16384.
-DeepGEMM warmup: 100%|██████████| 16384/16384 [00:31<00:00, 527.56it/s] 
-[2026-08-14 19:06:59] USE Community SGLang Triton Kernel: fused_recurrent_gated_delta_rule_packed_decode_kernel
-[2026-08-14 19:06:59] Entering DeepGEMM JIT Pre-Compile session. It may take a long time (typically 10-20 mins) if you have not run `sglang.compile_deep_gemm`. It is recommended to run `sglang.compile_deep_gemm` with same args as `sglang.launch_server` for pre-compilation to reduce the overhead if you have not run it before. For example: `python3 -m sglang.compile_deep_gemm --model deepseek-ai/DeepSeek-V3 --tp 8 --trust-remote-code`
-[2026-08-14 19:06:59] Try DeepGEMM JIT Compiling for <GEMM_NT_I8I8BF16> N=2048, K=2048, num_groups=1 with all Ms. It only takes a little time (typically 1 sec) if you have run `python3 -m sglang.compile_deep_gemm`. 
-[2026-08-14 19:06:59] Required memory for warmup: 0.09765625GB, Available memory: 11.327764257788658GB
-device_props.name:PPU-ZW810E
-
-DeepGEMM warmup:   0%|          | 0/16384 [00:00<?, ?it/s][AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.0918aaeeb55b/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.0918aaeeb55b/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.0918aaeeb55b/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   0%|          | 1/16384 [00:05<26:00:19,  5.71s/it][AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.3ac429c0f016/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.3ac429c0f016/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.3ac429c0f016/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   0%|          | 6/16384 [00:11<7:44:41,  1.70s/it] [AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.5287a2deb305/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.5287a2deb305/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.5287a2deb305/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   0%|          | 33/16384 [00:17<1:51:54,  2.44it/s][AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.ff321aeae0c1/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.ff321aeae0c1/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.ff321aeae0c1/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   1%|          | 128/16384 [00:23<34:44,  7.80it/s] [AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.a21a617d57ee/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.a21a617d57ee/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.a21a617d57ee/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   3%|▎         | 512/16384 [00:29<09:29, 27.89it/s][AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.5bb6d0ff2231/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.5bb6d0ff2231/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.5bb6d0ff2231/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   6%|▋         | 1025/16384 [00:35<05:27, 46.83it/s][A
-DeepGEMM warmup:  13%|█▎        | 2187/16384 [00:35<01:42, 138.38it/s][A
-DeepGEMM warmup:  20%|██        | 3348/16384 [00:36<00:48, 266.57it/s][A
-DeepGEMM warmup:  27%|██▋       | 4502/16384 [00:36<00:26, 443.70it/s][A
-DeepGEMM warmup:  34%|███▍      | 5558/16384 [00:36<00:16, 665.73it/s][A
-DeepGEMM warmup:  41%|████      | 6639/16384 [00:36<00:10, 974.16it/s][A
-DeepGEMM warmup:  47%|████▋     | 7781/16384 [00:36<00:06, 1409.00it/s][A
-DeepGEMM warmup:  54%|█████▍    | 8922/16384 [00:36<00:03, 1970.32it/s][A
-DeepGEMM warmup:  61%|██████▏   | 10047/16384 [00:36<00:02, 2659.15it/s][A
-DeepGEMM warmup:  68%|██████▊   | 11150/16384 [00:36<00:01, 3461.62it/s][A
-DeepGEMM warmup:  75%|███████▌  | 12292/16384 [00:36<00:00, 4419.91it/s][A
-DeepGEMM warmup:  82%|████████▏ | 13389/16384 [00:36<00:00, 5291.79it/s][A
-DeepGEMM warmup:  88%|████████▊ | 14452/16384 [00:37<00:00, 6168.11it/s][A
-DeepGEMM warmup:  95%|█████████▍| 15555/16384 [00:37<00:00, 7117.53it/s][A[2026-08-14 19:07:37] WARN: NOT calling deepgemm function since m=16384 >= max_m=16384.
-DeepGEMM warmup: 100%|██████████| 16384/16384 [00:37<00:00, 439.90it/s] 
-[2026-08-14 19:07:37] Entering DeepGEMM JIT Pre-Compile session. It may take a long time (typically 10-20 mins) if you have not run `sglang.compile_deep_gemm`. It is recommended to run `sglang.compile_deep_gemm` with same args as `sglang.launch_server` for pre-compilation to reduce the overhead if you have not run it before. For example: `python3 -m sglang.compile_deep_gemm --model deepseek-ai/DeepSeek-V3 --tp 8 --trust-remote-code`
-[2026-08-14 19:07:37] Try DeepGEMM JIT Compiling for <GEMM_NT_I8I8BF16> N=12288, K=2048, num_groups=1 with all Ms. It only takes a little time (typically 1 sec) if you have run `python3 -m sglang.compile_deep_gemm`. 
-[2026-08-14 19:07:37] Required memory for warmup: 0.4296875GB, Available memory: 11.335555776953697GB
-
-DeepGEMM warmup:   0%|          | 0/16384 [00:00<?, ?it/s][AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.b4e1252ae564/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.b4e1252ae564/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.b4e1252ae564/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   0%|          | 1/16384 [00:05<25:30:47,  5.61s/it][AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.635e878267fd/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.635e878267fd/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.635e878267fd/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   0%|          | 6/16384 [00:11<7:44:19,  1.70s/it] [AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.7276d3f9366a/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.7276d3f9366a/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.7276d3f9366a/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   0%|          | 33/16384 [00:17<1:50:42,  2.46it/s][AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.ac75baeb8044/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.ac75baeb8044/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.ac75baeb8044/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   1%|          | 128/16384 [00:23<34:32,  7.85it/s] [AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.d06bf03fc817/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.d06bf03fc817/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.d06bf03fc817/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   3%|▎         | 512/16384 [00:29<09:23, 28.17it/s][A
-DeepGEMM warmup:  10%|█         | 1657/16384 [00:29<01:56, 126.04it/s][A
-DeepGEMM warmup:  17%|█▋        | 2754/16384 [00:29<00:52, 257.17it/s][A
-DeepGEMM warmup:  24%|██▍       | 3909/16384 [00:29<00:27, 448.94it/s][A
-DeepGEMM warmup:  31%|███       | 5064/16384 [00:29<00:15, 711.87it/s][A
-DeepGEMM warmup:  38%|███▊      | 6174/16384 [00:29<00:09, 1051.83it/s][A
-DeepGEMM warmup:  45%|████▍     | 7331/16384 [00:29<00:05, 1521.59it/s][A
-DeepGEMM warmup:  52%|█████▏    | 8486/16384 [00:30<00:03, 2123.01it/s][A
-DeepGEMM warmup:  59%|█████▉    | 9640/16384 [00:30<00:02, 2866.07it/s][A
-DeepGEMM warmup:  66%|██████▌   | 10782/16384 [00:30<00:01, 3732.42it/s][A
-DeepGEMM warmup:  73%|███████▎  | 11889/16384 [00:30<00:00, 4646.72it/s][A
-DeepGEMM warmup:  80%|███████▉  | 13047/16384 [00:30<00:00, 5704.21it/s][A
-DeepGEMM warmup:  87%|████████▋ | 14193/16384 [00:30<00:00, 6734.02it/s][A
-DeepGEMM warmup:  93%|█████████▎| 15319/16384 [00:30<00:00, 7581.70it/s][A[2026-08-14 19:08:07] WARN: NOT calling deepgemm function since m=16384 >= max_m=16384.
-DeepGEMM warmup: 100%|██████████| 16384/16384 [00:30<00:00, 532.65it/s] 
-[2026-08-14 19:08:08] Entering DeepGEMM JIT Pre-Compile session. It may take a long time (typically 10-20 mins) if you have not run `sglang.compile_deep_gemm`. It is recommended to run `sglang.compile_deep_gemm` with same args as `sglang.launch_server` for pre-compilation to reduce the overhead if you have not run it before. For example: `python3 -m sglang.compile_deep_gemm --model deepseek-ai/DeepSeek-V3 --tp 8 --trust-remote-code`
-[2026-08-14 19:08:08] Try DeepGEMM JIT Compiling for <GEMM_NT_I8I8BF16> N=2048, K=6144, num_groups=1 with all Ms. It only takes a little time (typically 1 sec) if you have run `python3 -m sglang.compile_deep_gemm`. 
-[2026-08-14 19:08:08] Required memory for warmup: 0.16796875GB, Available memory: 11.335517153143883GB
-
-DeepGEMM warmup:   0%|          | 0/16384 [00:00<?, ?it/s][AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.f88de2cb2c10/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.f88de2cb2c10/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.f88de2cb2c10/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   0%|          | 1/16384 [00:05<26:07:08,  5.74s/it][AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.42bf0f1fb347/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.42bf0f1fb347/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.42bf0f1fb347/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   0%|          | 6/16384 [00:11<7:48:05,  1.71s/it] [AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.7810c4b41959/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.7810c4b41959/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.7810c4b41959/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   0%|          | 33/16384 [00:17<1:50:58,  2.46it/s][AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.6f06ce0abc60/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.6f06ce0abc60/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.6f06ce0abc60/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   1%|          | 128/16384 [00:23<34:33,  7.84it/s] [AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.2feb104d1e9b/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.2feb104d1e9b/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.2feb104d1e9b/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   3%|▎         | 512/16384 [00:29<09:27, 27.99it/s][AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.7213b4477973/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.7213b4477973/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.7213b4477973/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   6%|▋         | 1025/16384 [00:35<05:25, 47.20it/s][A
-DeepGEMM warmup:  13%|█▎        | 2165/16384 [00:35<01:43, 137.71it/s][A
-DeepGEMM warmup:  20%|██        | 3312/16384 [00:35<00:49, 265.33it/s][A
-DeepGEMM warmup:  27%|██▋       | 4457/16384 [00:35<00:26, 442.41it/s][A
-DeepGEMM warmup:  34%|███▍      | 5585/16384 [00:36<00:15, 682.11it/s][A
-DeepGEMM warmup:  41%|████      | 6717/16384 [00:36<00:09, 1007.92it/s][A
-DeepGEMM warmup:  48%|████▊     | 7832/16384 [00:36<00:05, 1433.08it/s][A
-DeepGEMM warmup:  55%|█████▍    | 8973/16384 [00:36<00:03, 1996.70it/s][A
-DeepGEMM warmup:  62%|██████▏   | 10101/16384 [00:36<00:02, 2689.89it/s][A
-DeepGEMM warmup:  69%|██████▊   | 11228/16384 [00:36<00:01, 3516.95it/s][A
-DeepGEMM warmup:  75%|███████▌  | 12360/16384 [00:36<00:00, 4460.98it/s][A
-DeepGEMM warmup:  82%|████████▏ | 13488/16384 [00:36<00:00, 5465.64it/s][A
-DeepGEMM warmup:  89%|████████▉ | 14616/16384 [00:36<00:00, 6476.34it/s][A
-DeepGEMM warmup:  96%|█████████▌| 15747/16384 [00:36<00:00, 7437.81it/s][A[2026-08-14 19:08:45] WARN: NOT calling deepgemm function since m=16384 >= max_m=16384.
-DeepGEMM warmup: 100%|██████████| 16384/16384 [00:37<00:00, 442.48it/s] 
-[2026-08-14 19:08:45] Entering DeepGEMM JIT Pre-Compile session. It may take a long time (typically 10-20 mins) if you have not run `sglang.compile_deep_gemm`. It is recommended to run `sglang.compile_deep_gemm` with same args as `sglang.launch_server` for pre-compilation to reduce the overhead if you have not run it before. For example: `python3 -m sglang.compile_deep_gemm --model deepseek-ai/DeepSeek-V3 --tp 8 --trust-remote-code`
-[2026-08-14 19:08:45] Try DeepGEMM JIT Compiling for <GEMM_NT_I8I8BF16> N=5120, K=2048, num_groups=1 with all Ms. It only takes a little time (typically 1 sec) if you have run `python3 -m sglang.compile_deep_gemm`. 
-[2026-08-14 19:08:45] Required memory for warmup: 0.197265625GB, Available memory: 11.335499987006187GB
-
-DeepGEMM warmup:   0%|          | 0/16384 [00:00<?, ?it/s][AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.038080663568/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.038080663568/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.038080663568/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   0%|          | 1/16384 [00:05<25:42:13,  5.65s/it][AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.d567c561b9f3/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.d567c561b9f3/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.d567c561b9f3/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   0%|          | 6/16384 [00:11<7:46:10,  1.71s/it] [AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.a0bf55e951c5/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.a0bf55e951c5/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.a0bf55e951c5/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   0%|          | 33/16384 [00:17<1:50:53,  2.46it/s][AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.50ac5c834348/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.50ac5c834348/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.50ac5c834348/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   1%|          | 128/16384 [00:23<34:51,  7.77it/s] [AIn file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.43b0d2ce783a/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:5:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/scheduler.cuh:7:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/fast_math.h:40:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-  throw std::runtime_error("Not yet implemented.");
-        ^
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function 'runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/uint128.h:118:9: warning: reference to __host__ function '~runtime_error' in __host__ __device__ function [-Wcross-execution-space-call]
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.43b0d2ce783a/kernel.cu:9:
-In file included from /usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:24:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/cutlass/epilogue/threadblock/epilogue_with_visitor.h:267:16: warning: argument to '#pragma unroll' should not be in parentheses [-Wcuda-compat]
-#pragma unroll(IterationsUnroll ? Visitor::kIterations : 1)
-               ^
-In file included from /root/.deep_gemm/cache/kernel.gemm_int8_t_bf16_nt.43b0d2ce783a/kernel.cu:9:
-/usr/local/lib/python3.12/site-packages/deep_gemm/jit/../include/deep_gemm/int8_gemm.cuh:341:47: warning: use 'template' keyword to treat 'get_global_idx' as a dependent template name
-            int32_t index_n = problem_visitor.get_global_idx<false>(gemm_n, ThreadblockShape::kN, n_block_idx, m_block_idx);
-                                              ^
-                                              template 
-8 warnings generated when compiling for ppu001.
-
-DeepGEMM warmup:   3%|▎         | 512/16384 [00:29<09:28, 27.92it/s][A
-DeepGEMM warmup:  10%|█         | 1640/16384 [00:29<01:59, 123.49it/s][A
-DeepGEMM warmup:  17%|█▋        | 2787/16384 [00:29<00:52, 259.50it/s][A
-DeepGEMM warmup:  24%|██▍       | 3942/16384 [00:29<00:27, 449.59it/s][A
-DeepGEMM warmup:  31%|███       | 5088/16384 [00:29<00:15, 708.19it/s][A
-DeepGEMM warmup:  38%|███▊      | 6233/16384 [00:30<00:09, 1056.89it/s][A
-DeepGEMM warmup:  45%|████▌     | 7379/16384 [00:30<00:05, 1517.92it/s][A
-DeepGEMM warmup:  52%|█████▏    | 8521/16384 [00:30<00:03, 2107.48it/s][A
-DeepGEMM warmup:  59%|█████▉    | 9669/16384 [00:30<00:02, 2842.12it/s][A
-DeepGEMM warmup:  66%|██████▌   | 10815/16384 [00:30<00:01, 3709.97it/s][A
-DeepGEMM warmup:  73%|███████▎  | 11928/16384 [00:30<00:00, 4643.03it/s][A
-DeepGEMM warmup:  80%|███████▉  | 13078/16384 [00:30<00:00, 5687.08it/s][A
-DeepGEMM warmup:  87%|████████▋ | 14199/16384 [00:30<00:00, 6655.55it/s][A
-DeepGEMM warmup:  94%|█████████▎| 15351/16384 [00:30<00:00, 7641.51it/s][A[2026-08-14 19:09:16] WARN: NOT calling deepgemm function since m=16384 >= max_m=16384.
-DeepGEMM warmup: 100%|██████████| 16384/16384 [00:30<00:00, 528.98it/s] 
-Capturing batches (bs=256 avail_mem=11.41 GB):   3%|▎         | 1/36 [02:48<1:38:28, 168.81s/it]Capturing batches (bs=248 avail_mem=11.20 GB):   3%|▎         | 1/36 [02:48<1:38:28, 168.81s/it]Capturing batches (bs=248 avail_mem=11.20 GB):   6%|▌         | 2/36 [02:49<39:32, 69.77s/it]   Capturing batches (bs=240 avail_mem=11.20 GB):   6%|▌         | 2/36 [02:49<39:32, 69.77s/it]Capturing batches (bs=232 avail_mem=11.20 GB):   6%|▌         | 2/36 [02:49<39:32, 69.77s/it]Capturing batches (bs=232 avail_mem=11.20 GB):  11%|█         | 4/36 [02:49<13:54, 26.08s/it]Capturing batches (bs=224 avail_mem=11.20 GB):  11%|█         | 4/36 [02:49<13:54, 26.08s/it]Capturing batches (bs=216 avail_mem=11.20 GB):  11%|█         | 4/36 [02:49<13:54, 26.08s/it]Capturing batches (bs=216 avail_mem=11.20 GB):  17%|█▋        | 6/36 [02:49<06:54, 13.81s/it]Capturing batches (bs=208 avail_mem=11.20 GB):  17%|█▋        | 6/36 [02:49<06:54, 13.81s/it]Capturing batches (bs=200 avail_mem=11.20 GB):  17%|█▋        | 6/36 [02:49<06:54, 13.81s/it]Capturing batches (bs=200 avail_mem=11.20 GB):  22%|██▏       | 8/36 [02:49<03:51,  8.28s/it]Capturing batches (bs=192 avail_mem=11.20 GB):  22%|██▏       | 8/36 [02:49<03:51,  8.28s/it]Capturing batches (bs=184 avail_mem=11.20 GB):  22%|██▏       | 8/36 [02:49<03:51,  8.28s/it]Capturing batches (bs=184 avail_mem=11.20 GB):  28%|██▊       | 10/36 [02:50<02:17,  5.29s/it]Capturing batches (bs=176 avail_mem=11.20 GB):  28%|██▊       | 10/36 [02:50<02:17,  5.29s/it]Capturing batches (bs=176 avail_mem=11.20 GB):  31%|███       | 11/36 [02:50<01:45,  4.22s/it]Capturing batches (bs=168 avail_mem=11.20 GB):  31%|███       | 11/36 [02:50<01:45,  4.22s/it]Capturing batches (bs=160 avail_mem=11.20 GB):  31%|███       | 11/36 [02:50<01:45,  4.22s/it]Capturing batches (bs=160 avail_mem=11.20 GB):  36%|███▌      | 13/36 [02:50<01:01,  2.68s/it]Capturing batches (bs=152 avail_mem=11.20 GB):  36%|███▌      | 13/36 [02:50<01:01,  2.68s/it]Capturing batches (bs=144 avail_mem=11.20 GB):  36%|███▌      | 13/36 [02:50<01:01,  2.68s/it]Capturing batches (bs=144 avail_mem=11.20 GB):  42%|████▏     | 15/36 [02:50<00:37,  1.79s/it]Capturing batches (bs=136 avail_mem=11.20 GB):  42%|████▏     | 15/36 [02:50<00:37,  1.79s/it]Capturing batches (bs=128 avail_mem=11.20 GB):  42%|████▏     | 15/36 [02:50<00:37,  1.79s/it]Capturing batches (bs=128 avail_mem=11.20 GB):  47%|████▋     | 17/36 [02:50<00:23,  1.22s/it]Capturing batches (bs=120 avail_mem=11.20 GB):  47%|████▋     | 17/36 [02:50<00:23,  1.22s/it]Capturing batches (bs=112 avail_mem=11.20 GB):  47%|████▋     | 17/36 [02:50<00:23,  1.22s/it]Capturing batches (bs=112 avail_mem=11.20 GB):  53%|█████▎    | 19/36 [02:50<00:14,  1.16it/s]Capturing batches (bs=104 avail_mem=11.20 GB):  53%|█████▎    | 19/36 [02:50<00:14,  1.16it/s]Capturing batches (bs=96 avail_mem=11.20 GB):  53%|█████▎    | 19/36 [02:50<00:14,  1.16it/s] Capturing batches (bs=96 avail_mem=11.20 GB):  58%|█████▊    | 21/36 [02:51<00:09,  1.62it/s]Capturing batches (bs=88 avail_mem=11.20 GB):  58%|█████▊    | 21/36 [02:51<00:09,  1.62it/s]Capturing batches (bs=80 avail_mem=11.20 GB):  58%|█████▊    | 21/36 [02:51<00:09,  1.62it/s]Capturing batches (bs=80 avail_mem=11.20 GB):  64%|██████▍   | 23/36 [02:51<00:05,  2.19it/s]Capturing batches (bs=72 avail_mem=11.20 GB):  64%|██████▍   | 23/36 [02:51<00:05,  2.19it/s]Capturing batches (bs=64 avail_mem=11.20 GB):  64%|██████▍   | 23/36 [02:51<00:05,  2.19it/s]Capturing batches (bs=64 avail_mem=11.20 GB):  69%|██████▉   | 25/36 [02:51<00:03,  2.91it/s]Capturing batches (bs=56 avail_mem=11.20 GB):  69%|██████▉   | 25/36 [02:51<00:03,  2.91it/s]Capturing batches (bs=48 avail_mem=11.20 GB):  69%|██████▉   | 25/36 [02:51<00:03,  2.91it/s]Capturing batches (bs=48 avail_mem=11.20 GB):  75%|███████▌  | 27/36 [02:51<00:02,  3.74it/s]Capturing batches (bs=40 avail_mem=11.20 GB):  75%|███████▌  | 27/36 [02:51<00:02,  3.74it/s]Capturing batches (bs=32 avail_mem=11.20 GB):  75%|███████▌  | 27/36 [02:51<00:02,  3.74it/s]Capturing batches (bs=32 avail_mem=11.20 GB):  81%|████████  | 29/36 [02:51<00:01,  4.65it/s]Capturing batches (bs=24 avail_mem=11.20 GB):  81%|████████  | 29/36 [02:51<00:01,  4.65it/s]Capturing batches (bs=16 avail_mem=11.20 GB):  81%|████████  | 29/36 [02:51<00:01,  4.65it/s]Capturing batches (bs=16 avail_mem=11.20 GB):  86%|████████▌ | 31/36 [02:51<00:00,  5.61it/s]Capturing batches (bs=12 avail_mem=11.20 GB):  86%|████████▌ | 31/36 [02:51<00:00,  5.61it/s]Capturing batches (bs=8 avail_mem=11.20 GB):  86%|████████▌ | 31/36 [02:52<00:00,  5.61it/s] Capturing batches (bs=8 avail_mem=11.20 GB):  92%|█████████▏| 33/36 [02:52<00:00,  6.58it/s]Capturing batches (bs=4 avail_mem=11.20 GB):  92%|█████████▏| 33/36 [02:52<00:00,  6.58it/s]Capturing batches (bs=2 avail_mem=11.20 GB):  92%|█████████▏| 33/36 [02:52<00:00,  6.58it/s]Capturing batches (bs=2 avail_mem=11.20 GB):  97%|█████████▋| 35/36 [02:52<00:00,  7.53it/s]Capturing batches (bs=1 avail_mem=11.20 GB):  97%|█████████▋| 35/36 [02:52<00:00,  7.53it/s]Capturing batches (bs=1 avail_mem=11.20 GB): 100%|██████████| 36/36 [02:52<00:00,  4.80s/it]
-[2026-08-14 19:09:20] Capture cuda graph end. Time elapsed: 173.26 s. mem usage=1.01 GB. avail mem=11.20 GB.
-[2026-08-14 19:09:20] Disable piecewise CUDA graph because --disable-piecewise-cuda-graph is set
-[2026-08-14 19:09:21] max_total_num_tokens=3602624, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=2039, context_len=262144, available_gpu_mem=11.20 GB
-[2026-08-14 19:09:22] INFO:     Started server process [392317]
-[2026-08-14 19:09:22] INFO:     Waiting for application startup.
-/usr/local/lib/python3.12/site-packages/pydantic/_internal/_fields.py:160: UserWarning: Field "model_identity" has conflict with protected namespace "model_".
-
-You may be able to resolve this warning by setting `model_config['protected_namespaces'] = ()`.
-  warnings.warn(
-[2026-08-14 19:09:22] INFO:     Application startup complete.
-[2026-08-14 19:09:22] INFO:     Uvicorn running on http://127.0.0.1:9001 (Press CTRL+C to quit)
-[2026-08-14 19:09:23] INFO:     127.0.0.1:51390 - "GET /model_info HTTP/1.1" 200 OK
-[2026-08-14 19:09:25] Prefill batch, #new-seq: 1, #new-token: 128, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 0.00
-[2026-08-14 19:09:25] INFO:     127.0.0.1:51398 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:09:25] The server is fired up and ready to roll!
-[2026-08-14 19:09:55] Prefill batch, #new-seq: 1, #new-token: 64, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 4.26
-[2026-08-14 19:09:56] INFO:     127.0.0.1:59858 - "GET /health_generate HTTP/1.1" 200 OK
-[2026-08-14 19:10:15] Prefill batch, #new-seq: 1, #new-token: 64, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 3.26
-[2026-08-14 19:10:16] INFO:     127.0.0.1:53246 - "GET /health_generate HTTP/1.1" 200 OK
-[2026-08-14 19:10:16] Prefill batch, #new-seq: 1, #new-token: 64, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 63.59
-[2026-08-14 19:10:16] INFO:     127.0.0.1:35184 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-/usr/local/lib/python3.12/site-packages/sglang/srt/utils/common.py:845: UserWarning: The given buffer is not writable, and PyTorch does not support non-writable tensors. This means you can write to the underlying (supposedly non-writable) buffer using the tensor. You may want to copy the buffer to protect its data or make it writable before converting it to a tensor. This type of warning will be suppressed for the rest of this program. (Triggered internally at ../torch/csrc/utils/tensor_new.cpp:1581.)
-  encoded_image = torch.frombuffer(image_bytes, dtype=torch.uint8)
-#### hgjpeg compiled at Jul 25 2026 11:50:22
-[2026-08-14 19:10:16] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 344.12
-[2026-08-14 19:10:16] INFO:     127.0.0.1:35192 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:16] Decode batch, #running-req: 1, #full token: 384, full token usage: 0.00, mamba num: 1, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 0.17, #queue-req: 0
-[2026-08-14 19:10:16] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2270.33
-[2026-08-14 19:10:16] INFO:     127.0.0.1:35208 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:16] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 4177.14
-[2026-08-14 19:10:16] INFO:     127.0.0.1:35222 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:16] Decode batch, #running-req: 1, #full token: 384, full token usage: 0.00, mamba num: 1, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 165.46, #queue-req: 0
-[2026-08-14 19:10:16] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2397.89
-[2026-08-14 19:10:16] INFO:     127.0.0.1:35236 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:16] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2854.41
-[2026-08-14 19:10:16] INFO:     127.0.0.1:35240 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:17] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 4374.01
-[2026-08-14 19:10:17] INFO:     127.0.0.1:35254 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:17] Decode batch, #running-req: 1, #full token: 384, full token usage: 0.00, mamba num: 1, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 113.62, #queue-req: 0
-[2026-08-14 19:10:17] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 3121.90
-[2026-08-14 19:10:17] INFO:     127.0.0.1:35268 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:17] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2785.89
-[2026-08-14 19:10:17] INFO:     127.0.0.1:35276 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:17] Decode batch, #running-req: 1, #full token: 256, full token usage: 0.00, mamba num: 1, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 151.92, #queue-req: 0
-[2026-08-14 19:10:17] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 1830.29
-[2026-08-14 19:10:17] INFO:     127.0.0.1:35284 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:17] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 3860.20
-[2026-08-14 19:10:17] INFO:     127.0.0.1:35288 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:17] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2936.40
-[2026-08-14 19:10:17] INFO:     127.0.0.1:35294 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:17] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2115.42
-[2026-08-14 19:10:17] INFO:     127.0.0.1:35308 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:17] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 1747.19
-[2026-08-14 19:10:17] INFO:     127.0.0.1:35324 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:17] Decode batch, #running-req: 1, #full token: 192, full token usage: 0.00, mamba num: 1, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 81.40, #queue-req: 0
-[2026-08-14 19:10:17] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2175.26
-[2026-08-14 19:10:17] INFO:     127.0.0.1:35336 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:18] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2898.82
-[2026-08-14 19:10:18] INFO:     127.0.0.1:35340 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:18] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 3412.54
-[2026-08-14 19:10:18] INFO:     127.0.0.1:35342 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:18] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 3597.65
-[2026-08-14 19:10:18] INFO:     127.0.0.1:35356 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:18] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 1958.64
-[2026-08-14 19:10:18] INFO:     127.0.0.1:35370 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:18] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 593.62
-[2026-08-14 19:10:18] INFO:     127.0.0.1:35376 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:18] Decode batch, #running-req: 1, #full token: 320, full token usage: 0.00, mamba num: 1, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 38.62, #queue-req: 0
-[2026-08-14 19:10:18] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2946.46
-[2026-08-14 19:10:18] INFO:     127.0.0.1:35386 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:19] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2264.66
-[2026-08-14 19:10:19] INFO:     127.0.0.1:35388 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:19] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2345.80
-[2026-08-14 19:10:19] INFO:     127.0.0.1:35390 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:43] Prefill batch, #new-seq: 1, #new-token: 64, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 10.37
-[2026-08-14 19:10:44] INFO:     127.0.0.1:33956 - "GET /health_generate HTTP/1.1" 200 OK
-[2026-08-14 19:10:44] Prefill batch, #new-seq: 1, #new-token: 64, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 63.73
-[2026-08-14 19:10:44] INFO:     127.0.0.1:33970 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:44] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 758.09
-[2026-08-14 19:10:44] INFO:     127.0.0.1:33978 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:44] Decode batch, #running-req: 1, #full token: 384, full token usage: 0.00, mamba num: 1, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 1.53, #queue-req: 0
-[2026-08-14 19:10:45] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2559.68
-[2026-08-14 19:10:45] INFO:     127.0.0.1:33994 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:45] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 4160.18
-[2026-08-14 19:10:45] INFO:     127.0.0.1:33998 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:45] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 6548.11
-[2026-08-14 19:10:45] INFO:     127.0.0.1:34006 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:45] Decode batch, #running-req: 1, #full token: 384, full token usage: 0.00, mamba num: 1, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 146.38, #queue-req: 0
-[2026-08-14 19:10:45] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2445.93
-[2026-08-14 19:10:45] INFO:     127.0.0.1:34022 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:45] Decode batch, #running-req: 1, #full token: 384, full token usage: 0.00, mamba num: 1, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 230.42, #queue-req: 0
-[2026-08-14 19:10:45] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 4043.50
-[2026-08-14 19:10:45] INFO:     127.0.0.1:34032 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:45] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 5543.51
-[2026-08-14 19:10:45] INFO:     127.0.0.1:34034 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:45] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 3739.48
-[2026-08-14 19:10:45] INFO:     127.0.0.1:35422 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:45] Decode batch, #running-req: 1, #full token: 384, full token usage: 0.00, mamba num: 1, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 139.69, #queue-req: 0
-[2026-08-14 19:10:45] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 3279.21
-[2026-08-14 19:10:45] INFO:     127.0.0.1:35432 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:45] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2216.69
-[2026-08-14 19:10:45] INFO:     127.0.0.1:35436 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:45] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 4948.38
-[2026-08-14 19:10:45] INFO:     127.0.0.1:35450 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:46] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 3823.80
-[2026-08-14 19:10:46] INFO:     127.0.0.1:35452 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:46] Decode batch, #running-req: 1, #full token: 192, full token usage: 0.00, mamba num: 1, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 122.94, #queue-req: 0
-[2026-08-14 19:10:46] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2773.23
-[2026-08-14 19:10:46] INFO:     127.0.0.1:35464 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:46] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2403.26
-[2026-08-14 19:10:46] INFO:     127.0.0.1:35468 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:46] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2842.90
-[2026-08-14 19:10:46] INFO:     127.0.0.1:35470 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:46] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 3445.97
-[2026-08-14 19:10:46] INFO:     127.0.0.1:35486 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:46] Prefill batch, #new-seq: 1, #new-token: 384, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 4618.15
-[2026-08-14 19:10:46] INFO:     127.0.0.1:35498 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:46] Decode batch, #running-req: 1, #full token: 384, full token usage: 0.00, mamba num: 1, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 102.40, #queue-req: 0
-[2026-08-14 19:10:46] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 4915.98
-[2026-08-14 19:10:46] INFO:     127.0.0.1:35514 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:46] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2746.32
-[2026-08-14 19:10:46] INFO:     127.0.0.1:35518 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:46] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 4570.17
-[2026-08-14 19:10:46] INFO:     127.0.0.1:35524 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:46] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 3372.30
-[2026-08-14 19:10:46] INFO:     127.0.0.1:35532 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:46] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 3039.22
-[2026-08-14 19:10:46] INFO:     127.0.0.1:35540 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:46] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 2818.19
-[2026-08-14 19:10:46] INFO:     127.0.0.1:35552 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:47] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 748.75
-[2026-08-14 19:10:47] INFO:     127.0.0.1:35568 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:47] Decode batch, #running-req: 1, #full token: 256, full token usage: 0.00, mamba num: 1, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 51.98, #queue-req: 0
-[2026-08-14 19:10:47] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 738.23
-[2026-08-14 19:10:47] INFO:     127.0.0.1:35578 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:47] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 532.23
-[2026-08-14 19:10:47] INFO:     127.0.0.1:35580 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:48] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 710.77
-[2026-08-14 19:10:48] INFO:     127.0.0.1:35582 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:48] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 694.65
-[2026-08-14 19:10:48] INFO:     127.0.0.1:35588 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:48] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 700.19
-[2026-08-14 19:10:48] INFO:     127.0.0.1:35592 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:49] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 690.65
-[2026-08-14 19:10:49] INFO:     127.0.0.1:35606 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:49] Decode batch, #running-req: 1, #full token: 256, full token usage: 0.00, mamba num: 1, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 18.39, #queue-req: 0
-[2026-08-14 19:10:49] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 687.74
-[2026-08-14 19:10:49] INFO:     127.0.0.1:35620 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:50] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 815.07
-[2026-08-14 19:10:50] INFO:     127.0.0.1:35634 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:50] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 687.15
-[2026-08-14 19:10:50] INFO:     127.0.0.1:35642 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:50] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 536.66
-[2026-08-14 19:10:50] INFO:     127.0.0.1:35654 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:50] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 3111.60
-[2026-08-14 19:10:50] INFO:     127.0.0.1:35662 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:50] Decode batch, #running-req: 1, #full token: 0, full token usage: 0.00, mamba num: 0, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 24.94, #queue-req: 0
-[2026-08-14 19:10:51] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 559.50
-[2026-08-14 19:10:51] INFO:     127.0.0.1:35670 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:51] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 493.42
-[2026-08-14 19:10:51] INFO:     127.0.0.1:35684 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:52] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 658.76
-[2026-08-14 19:10:52] INFO:     127.0.0.1:35694 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:52] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 878.04
-[2026-08-14 19:10:52] INFO:     127.0.0.1:35708 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:52] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 853.13
-[2026-08-14 19:10:52] INFO:     127.0.0.1:35724 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:52] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 3837.46
-[2026-08-14 19:10:52] INFO:     127.0.0.1:35728 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:53] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 898.54
-[2026-08-14 19:10:53] INFO:     127.0.0.1:35732 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:53] Decode batch, #running-req: 1, #full token: 320, full token usage: 0.00, mamba num: 1, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 17.45, #queue-req: 0
-[2026-08-14 19:10:53] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 901.96
-[2026-08-14 19:10:53] INFO:     127.0.0.1:35740 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:53] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 687.71
-[2026-08-14 19:10:53] INFO:     127.0.0.1:35752 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:54] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 714.51
-[2026-08-14 19:10:54] INFO:     127.0.0.1:35758 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:54] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 674.26
-[2026-08-14 19:10:54] INFO:     127.0.0.1:35774 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:55] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 905.61
-[2026-08-14 19:10:55] INFO:     127.0.0.1:35776 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:55] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 3724.97
-[2026-08-14 19:10:55] INFO:     127.0.0.1:35792 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:55] Prefill batch, #new-seq: 1, #new-token: 256, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 698.25
-[2026-08-14 19:10:55] INFO:     127.0.0.1:35806 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:55] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 738.46
-[2026-08-14 19:10:55] INFO:     127.0.0.1:35808 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:55] Decode batch, #running-req: 1, #full token: 320, full token usage: 0.00, mamba num: 1, mamba usage: 0.00, cuda graph: True, gen throughput (token/s): 15.28, #queue-req: 0
-[2026-08-14 19:10:56] Prefill batch, #new-seq: 1, #new-token: 320, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 907.86
-[2026-08-14 19:10:56] INFO:     127.0.0.1:46560 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:56] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 910.91
-[2026-08-14 19:10:56] INFO:     127.0.0.1:46566 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:10:56] Prefill batch, #new-seq: 1, #new-token: 192, #cached-token: 0, full token usage: 0.00, mamba usage: 0.00, #running-req: 0, #queue-req: 0, cuda graph: False, input throughput (token/s): 533.56
-[2026-08-14 19:10:56] INFO:     127.0.0.1:46574 - "POST /v1/chat/completions HTTP/1.1" 200 OK
-[2026-08-14 19:11:50] SIGTERM received. signum=None frame=None. Draining requests and shutting down...
-[2026-08-14 19:11:53] Gracefully exiting... Remaining number of requests 0. Remaining requests remaining_rids=[].

@@ -4,17 +4,18 @@
 
 ## 0. TL;DR
 
-**推荐方案:S2-aggressive + ACEXT + patch(必装)**
+**推荐方案:S2-aggressive + GEMV (R8) + patch(必装)**
 
 | 方案 | Patches | 实测 (en 100) | 实测 (cn 100) | 备注 |
 |---|---|---|---|---|
-| **S2-aggressive + ACEXT(必装 patches,§2.2)** | ✅ 已装 | acc **0.76**, TTFT **75 ms**, tput **398 tok/s** | **acc 0.82, TTFT 65 ms, tput 421 tok/s** | INT8 W8A8 量化模型,ACEXT 接管 dense linear,patch 释放 GEMV custom op |
-| 对照: 同配置但 **不打 patch** | ❌ | acc 0.81, TTFT 87 ms, tput 397 tok/s | — | GEMV env var 设了但 custom op 缺失 → 静默 fallback,TTFT 多 12 ms |
-| 对照: bf16 G 组(无 quant) | — | acc 0.78, TTFT 73 ms, tput 357 tok/s | **acc 0.82, TTFT 71 ms, tput 383 tok/s** | 不用 patch,纯 bf16 |
+| **🏆 S2-aggressive + GEMV (R8)** | ✅ 已装 | acc **0.73**, TTFT **66.5 ms**, tput **434.0 tok/s** | acc **0.82**, TTFT **65.0 ms**, tput **420.7 tok/s** | INT8 W8A8 量化,**GEMV 接管 dense linear** (R8 > ACEXT, +2.3% TPS);patch 释放 GEMV custom op;fa3 attention backend |
+| 备选: **R6**(极致 TTFT + acc) | ✅ 已装 | acc **0.74**, TTFT **64.1 ms**, tput **428.9 tok/s** | — | 同 R8,attention backend 换 triton_attn → TTFT −2.4 ms,acc +1pp |
+| 对照: 同配置但 **不打 patch** | ❌ | acc 0.81, TTFT ~87 ms, tput ~397 tok/s | — | GEMV env var 设了但 custom op 缺失 → 静默 fallback,TTFT 多 ~12 ms;acc 0.81 属采样噪声上限(95% CI ≈ ±8pp,见关键认知 #3) |
+| 对照: bf16 G 组(无 quant) | — | acc 0.78, TTFT 76.8 ms, tput 402.7 tok/s | acc 0.82, TTFT 71.4 ms, tput 383.2 tok/s | 不用 patch,纯 bf16 |
 
 **关键精度结论**(在 100 样本 95% CI ≈ ±9.6pp 范围内,**官方 evaluator**):
-- **cn 数据集上 INT8 量化无精度损失**：0.820 (BF16) = 0.820 (INT8),且 INT8 +9.8% tput / −9.0% TTFT
-- **en 数据集上**：0.780 (BF16) vs 0.740 (INT8),−4pp 统计不显著,TPS +6.5% / TTFT −16.5%
+- **cn 数据集上 INT8 量化无精度损失**：0.820 (BF16) = 0.820 (INT8 R8),INT8 +9.8% tput / −9.0% TTFT
+- **en 数据集上**(R8 / R6 取最优 acc):0.780 (BF16) vs 0.740 (INT8 R6),−4pp 统计不显著,TPS +6.5% / TTFT −16.5%;R8 极致 TPS 路径 acc 0.73
 - 之前 cn=0.27 是 runner extractor bug(旧 5 个正则无中文 pattern),官方 `benchmark_public.py` 修正后 = 0.820
 
 **Patch 的真实价值**(对比 patch 前/后,同 100 样本):

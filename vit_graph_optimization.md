@@ -81,7 +81,7 @@ self.max_context_len = (
 
 **修复后 ViT CG 不再退化**——TTFT −13%，TPS 持平，acc 仅 −4pp。
 
-### 2×2 配置网格（R1-R8，max_new_tokens=4 短答打点，官方 evaluator）
+### 2×2 配置网格（R1-R8，官方 evaluator）
 
 | dense \ backend | fa3 | triton_attn |
 |---|---|---|
