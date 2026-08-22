@@ -183,15 +183,23 @@ class _SGLangServer:
         #   - sglang/srt/hardware_backend/ppu/attention/ppu_fa3_hooks.py
         # 详见 /mnt/workspace/PPU/results_summary.md §1
         if os.environ.get("SGLANG_DISABLE_CUDA_GRAPH", "0") != "1":
-            # NOTE: sglang auto-disables piecewise CUDA Graph for VLM
-            # models (server_args.py:1417-1418). The --enable flag is
-            # overridden silently. Trying --enforce-piecewise-cuda-graph
-            # triggers AssertionError "PCG capture stream is not set".
-            # So we only get the regular CUDA Graph + ViT CG here.
             cmd.extend([
                 "--enable-piecewise-cuda-graph",
-                "--piecewise-cuda-graph-max-tokens",
-                os.environ.get("SGLANG_PIECEWISE_CUDA_GRAPH_MAX_TOKENS", "256"),
+                # NOTE: --enforce-piecewise-cuda-graph removed (2026-08-22)
+                # Runtime recompilation of dynamic shapes (e.g. after
+                # image-prefill with token counts outside the captured range)
+                # trips cuda_piecewise_backend.py:171
+                # "PCG capture stream is not set, please check if runtime
+                # recompilation happened". With enforce=True, the scheduler
+                # dies; without enforce it falls back to eager cleanly
+                # (R7 baseline semantics: TTFT 66.5ms / TPS 434).
+                #
+                # NOTE: --piecewise-cuda-graph-max-tokens removed (B, 2026-08-22)
+                # Default in sglang server_args.py:1606-1633 is
+                # min(chunked_prefill_size, 4096) — ~2048 with our settings.
+                # That covers 384-token image prefill and avoids runtime
+                # recompile. Set SGLANG_PIECEWISE_CUDA_GRAPH_MAX_TOKENS=256
+                # to restore the R8 limited-capture semantics for debugging.
                 "--piecewise-cuda-graph-compiler", "eager",
                 "--mm-attention-backend", "fa3",
                 # 普通 CUDA Graph max BS — R6 sweet spot = 16(覆盖 bs=1..16);
@@ -217,6 +225,10 @@ class _SGLangServer:
         if os.environ.get("SGLANG_DISABLE_CUDA_GRAPH", "0") != "1":
             env.setdefault("SGLANG_VIT_ENABLE_CUDA_GRAPH", "1")
         env.setdefault("SGLANG_MM_FEATURE_CACHE_MB", "4096")
+        # SGLANG_VLM_CACHE_SIZE_MB left at sglang default (100) — see eval notes.
+        # Setting it to 0 disables the multimodal embedding cache; for unique-image
+        # benchmarks like mmbench the cache misses anyway, but the cache layer
+        # being initialized is required by some encode / disaggregation paths.
         env.setdefault("SGLANG_VLM_CACHE_SIZE_MB", "0")
 
         # === GEMV / 量化分派 + 自动 warmup(本仓库 patches 注入)===
