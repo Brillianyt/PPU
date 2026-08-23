@@ -1,0 +1,10 @@
+/usr/local/lib/python3.12/site-packages/requests/__init__.py:113: RequestsDependencyWarning: urllib3 (1.26.16) or chardet (6.0.0.post1)/charset_normalizer (2.0.12) doesn't match a supported version!
+  warnings.warn(
+{
+  "backend": "sglang",
+  "sample_count": 20,
+  "avg_ttft_ms": 78.662,
+  "avg_throughput_tokens_per_sec": 399.903,
+  "accuracy": 0.75,
+  "public_validation_passed": true
+}

@@ -1,0 +1,348 @@
+{
+  "benchmark_version": "dndx_public_self_test",
+  "timestamp": "2026-08-23T12:54:52.579379",
+  "dataset_path": "/mnt/workspace/datasets/mmbench/mmbench_dev_en.tsv",
+  "sample_count": 20,
+  "seed": 20260625,
+  "backend": "sglang",
+  "performance": {
+    "avg_ttft_ms": 80.847,
+    "avg_throughput_tokens_per_sec": 395.556
+  },
+  "timing": {
+    "benchmark_elapsed_seconds": 44.685,
+    "benchmark_elapsed_minutes": 0.745,
+    "avg_seconds_per_sample": 2.234
+  },
+  "accuracy": {
+    "score": 0.75,
+    "correct": 15,
+    "total": 20
+  },
+  "public_validation": {
+    "passed": true,
+    "failed_samples": 0
+  },
+  "answers": [
+    {
+      "question_id": "241",
+      "parsed_answer": "B",
+      "correct": true,
+      "ttft_ms": 67.498,
+      "throughput_tokens_per_sec": 365.897,
+      "token_count": 34,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 340,
+        "completion_tokens": 34,
+        "streamed_chunks": 33
+      }
+    },
+    {
+      "question_id": "252",
+      "parsed_answer": "A",
+      "correct": false,
+      "ttft_ms": 71.965,
+      "throughput_tokens_per_sec": 292.498,
+      "token_count": 17,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 360,
+        "completion_tokens": 17,
+        "streamed_chunks": 16
+      }
+    },
+    {
+      "question_id": "254",
+      "parsed_answer": "A",
+      "correct": false,
+      "ttft_ms": 66.535,
+      "throughput_tokens_per_sec": 378.648,
+      "token_count": 10,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 337,
+        "completion_tokens": 10,
+        "streamed_chunks": 9
+      }
+    },
+    {
+      "question_id": "256",
+      "parsed_answer": "A",
+      "correct": true,
+      "ttft_ms": 71.242,
+      "throughput_tokens_per_sec": 373.453,
+      "token_count": 17,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 363,
+        "completion_tokens": 17,
+        "streamed_chunks": 16
+      }
+    },
+    {
+      "question_id": "258",
+      "parsed_answer": "B",
+      "correct": true,
+      "ttft_ms": 59.855,
+      "throughput_tokens_per_sec": 280.832,
+      "token_count": 22,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 338,
+        "completion_tokens": 22,
+        "streamed_chunks": 21
+      }
+    },
+    {
+      "question_id": "264",
+      "parsed_answer": "B",
+      "correct": true,
+      "ttft_ms": 64.191,
+      "throughput_tokens_per_sec": 373.294,
+      "token_count": 21,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 217,
+        "completion_tokens": 21,
+        "streamed_chunks": 20
+      }
+    },
+    {
+      "question_id": "267",
+      "parsed_answer": "A",
+      "correct": true,
+      "ttft_ms": 70.033,
+      "throughput_tokens_per_sec": 430.548,
+      "token_count": 5,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 274,
+        "completion_tokens": 5,
+        "streamed_chunks": 4
+      }
+    },
+    {
+      "question_id": "269",
+      "parsed_answer": "A",
+      "correct": true,
+      "ttft_ms": 61.71,
+      "throughput_tokens_per_sec": 412.235,
+      "token_count": 6,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 214,
+        "completion_tokens": 6,
+        "streamed_chunks": 5
+      }
+    },
+    {
+      "question_id": "274",
+      "parsed_answer": "B",
+      "correct": true,
+      "ttft_ms": 62.813,
+      "throughput_tokens_per_sec": 411.97,
+      "token_count": 6,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 165,
+        "completion_tokens": 6,
+        "streamed_chunks": 5
+      }
+    },
+    {
+      "question_id": "278",
+      "parsed_answer": "B",
+      "correct": true,
+      "ttft_ms": 66.171,
+      "throughput_tokens_per_sec": 429.012,
+      "token_count": 5,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 169,
+        "completion_tokens": 5,
+        "streamed_chunks": 4
+      }
+    },
+    {
+      "question_id": "295",
+      "parsed_answer": "A",
+      "correct": false,
+      "ttft_ms": 133.612,
+      "throughput_tokens_per_sec": 462.771,
+      "token_count": 4,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 137,
+        "completion_tokens": 4,
+        "streamed_chunks": 3
+      }
+    },
+    {
+      "question_id": "302",
+      "parsed_answer": "B",
+      "correct": true,
+      "ttft_ms": 93.209,
+      "throughput_tokens_per_sec": 413.097,
+      "token_count": 5,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 195,
+        "completion_tokens": 5,
+        "streamed_chunks": 4
+      }
+    },
+    {
+      "question_id": "308",
+      "parsed_answer": "A",
+      "correct": true,
+      "ttft_ms": 96.611,
+      "throughput_tokens_per_sec": 380.932,
+      "token_count": 10,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 341,
+        "completion_tokens": 10,
+        "streamed_chunks": 9
+      }
+    },
+    {
+      "question_id": "313",
+      "parsed_answer": "A",
+      "correct": true,
+      "ttft_ms": 68.859,
+      "throughput_tokens_per_sec": 379.005,
+      "token_count": 10,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 341,
+        "completion_tokens": 10,
+        "streamed_chunks": 9
+      }
+    },
+    {
+      "question_id": "316",
+      "parsed_answer": "B",
+      "correct": true,
+      "ttft_ms": 91.371,
+      "throughput_tokens_per_sec": 409.944,
+      "token_count": 5,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 172,
+        "completion_tokens": 5,
+        "streamed_chunks": 4
+      }
+    },
+    {
+      "question_id": "344",
+      "parsed_answer": "A",
+      "correct": false,
+      "ttft_ms": 93.551,
+      "throughput_tokens_per_sec": 430.061,
+      "token_count": 4,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 291,
+        "completion_tokens": 4,
+        "streamed_chunks": 3
+      }
+    },
+    {
+      "question_id": "355",
+      "parsed_answer": "A",
+      "correct": true,
+      "ttft_ms": 93.112,
+      "throughput_tokens_per_sec": 374.016,
+      "token_count": 14,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 272,
+        "completion_tokens": 14,
+        "streamed_chunks": 13
+      }
+    },
+    {
+      "question_id": "362",
+      "parsed_answer": "B",
+      "correct": true,
+      "ttft_ms": 120.535,
+      "throughput_tokens_per_sec": 433.573,
+      "token_count": 4,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 163,
+        "completion_tokens": 4,
+        "streamed_chunks": 3
+      }
+    },
+    {
+      "question_id": "364",
+      "parsed_answer": "B",
+      "correct": true,
+      "ttft_ms": 66.306,
+      "throughput_tokens_per_sec": 432.732,
+      "token_count": 4,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 156,
+        "completion_tokens": 4,
+        "streamed_chunks": 3
+      }
+    },
+    {
+      "question_id": "365",
+      "parsed_answer": "A",
+      "correct": false,
+      "ttft_ms": 97.758,
+      "throughput_tokens_per_sec": 446.607,
+      "token_count": 4,
+      "validation_errors": [],
+      "meta": {
+        "backend": "sglang",
+        "base_url": "http://127.0.0.1:8999",
+        "prompt_tokens": 204,
+        "completion_tokens": 4,
+        "streamed_chunks": 3
+      }
+    }
+  ]
+}

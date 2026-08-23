@@ -17,23 +17,27 @@ PPU_SDK=/usr/local/PPU_SDK python3 benchmark_public.py \
   --output result_dev_en_r6.json
 ```
 
-预期数字 (R6 / triton_attn / wrapper 默认配置 / 100 样本 en, warmup 8):
+预期数字 (R8 / fa3 + inductor PiCG / wrapper 默认 / 100 样本 en, warmup 8):
 
 | | 实测 (本方案,en) | baseline (BF16 G 组) | Δ |
 |---|---|---|---|
-| accuracy | **0.74** | 0.78 | −4pp (不显著) |
-| TTFT (median) | **63 ms** | 73 ms | −14% |
-| throughput | **410 tok/s** | 357 tok/s | +15% |
+| accuracy | **0.73** | 0.78 | −5pp (不显著,在 100 样本 ±8pp 噪声内) |
+| TTFT median (post-warmup 92) | **63 ms** | 73 ms | −14% |
+| throughput avg | **412 tok/s** | 357 tok/s | +15% |
+| total elapsed | **51 s** | ~150 s(估计) | −66% |
 | CN accuracy | **0.82** | 0.82 | 0pp |
 
 > **CN 数据集上 INT8 量化是「完全免费的优化」**(acc 0pp 损失 + +9.8% tput
 > + −9.0% TTFT,基于 cn 集 100 样本)。比赛私有测试集若是中英混合,整体
 > 量化损失 < 4pp,在统计噪声范围。
+>
+> **TTFT median 优于 R8 spec 5%** — inductor PiCG + ViT CG 组合在 prefill 路径
+> 真做算子融合;详情见 §2.3 + `docs/07_PPU_FRAMEWORK.md`。
 
 ## 1. 五步复现流程
 
 ```
-[1] 部署 6 类共 10 文件 patch (§2 Step 1)
+[1] 部署 7 类共 14 文件 patch (§2.4 Step 1)
        ↓
 [2] 启动 sglang server(wrapper 自动启,无需手工)
        ↓
@@ -52,8 +56,8 @@ site-packages 即可还原。
 | 变体 | 推荐场景 | 实测数字 (en 100, warmup 8) | patches |
 |---|---|---|---|
 | **G 组 bf16** §2.1 | 简单、无 patch、对照基线 | acc 0.81 / TTFT 73ms / tput 357 tok/s (500 样本) | 无 |
-| **R6 (极致 TTFT+acc)** §2.2 | **比赛首选** | acc 0.74 / TTFT 64ms / tput 429 tok/s | 全部 6 类 |
-| **R8 (极致 TPS)** §2.3 | 冲吞吐 | acc 0.73 / TTFT 66ms / tput 434 tok/s | 全部 6 类 |
+| **R6 (极致 TTFT+acc)** §2.2 | triton_attn mm-backend 对照 | acc 0.74 / TTFT 64ms / tput 429 tok/s | 全部 7 类 |
+| **R8 (极致 TPS)** §2.3 | **当前默认** | acc 0.73 / TTFT 63ms / tput 412 tok/s / 51 s | 全部 7 类 |
 
 ### 2.1 G 组 bf16 (对照基线, 不打 patch)
 
@@ -84,20 +88,74 @@ wrapper 默认 (patch 已装后) 启用: `SGLANG_SAIL_USE_GEMV=1`、`SGLANG_SAIL
 `SGLANG_VIT_ENABLE_CUDA_GRAPH=1`、`SGLANG_CUDA_GRAPH_MAX_BS=16`。SGLANG_EXTRA_ARGS
 只在需要切换 mm attention backend 时设。
 
-### 2.3 R8 — 极致 TPS (fa3 backend)
+### 2.3 R8 — 极致 TPS (fa3 + inductor PiCG,默认)
 
-同 R6,但 `SGLANG_EXTRA_ARGS` 改为 `--mm-attention-backend fa3`。可省略 (wrapper 默认
-就是 fa3)。
+**当前默认配方**: `--mm-attention-backend fa3` + piecewise CUDA Graph
+**+ `--piecewise-cuda-graph-compiler inductor`**(真调 `torch._inductor.compile_fx`
+做算子自动融合)+ ViT CG + GEMV。代码上同 R6,只是 wrapper 默认就
+是 inductor,不需要 `SGLANG_EXTRA_ARGS` 注入。
+
+```bash
+PPU_SDK=/usr/local/PPU_SDK python3 benchmark_public.py \
+  --dataset-path /mnt/workspace/datasets/mmbench/mmbench_dev_en.tsv \
+  --model-path /mnt/workspace/models/Qwen_quant/Qwen3.5-2B-S2-aggressive \
+  --backend sglang --num-samples 100 --warmup-samples 8 \
+  --output result_dev_en_r8_100.json
+```
+
+| 预期数字(100 样本,warmup 8) | R8 spec | 当前默认实现 |
+|---|---|---|
+| accuracy | 0.71 | **0.73** |
+| TPS avg per-req | 434 | ~412 |
+| TTFT median (post-warmup 92) | 66.5 ms | **63 ms** |
+| total elapsed | — | ~51 s |
+
+> **关键 trade-off** — TTFT median 比 R8 spec 还快 5%(spec 66.5 → 实测 63),
+> TPS 略低于 spec(-5%),但总耗时是 R8+eager baseline(216 s)的 **1/4**。
+> VLM workload(image prefill 主导总耗时)下净赚。
+
+#### 2.3.1 用 env var 控制 inductor / autotune
+
+| env var | 默认 | 作用 |
+|---|---|---|
+| `SGLANG_PIECEWISE_CUDA_GRAPH_COMPILER` | `inductor` | PiCG 编译后端。可设 `eager` 退回旧的非融合模式 |
+| `SGLANG_PIECEWISE_INDUCTOR_AUTOTUNE` | `0`(关) | 设 `1` 开 inductor `max_autotune` + `coordinate_descent_tuning`(启动变慢,TPS 略增 ~1%,风险:在 PPU 上可能挑到不如手调 SAIL TensorCore 的 Triton kernel) |
+
+示例:退回 eager + 关 autotune(诊断 / 对照实验用):
+
+```bash
+SGLANG_PIECEWISE_CUDA_GRAPH_COMPILER=eager \
+PPU_SDK=/usr/local/PPU_SDK python3 benchmark_public.py ...
+```
+
+示例:inductor 全套 + autotune(冲极致):
+
+```bash
+SGLANG_PIECEWISE_INDUCTOR_AUTOTUNE=1 \
+PPU_SDK=/usr/local/PPU_SDK python3 benchmark_public.py ...
+```
 
 ### 2.4 Patch 部署 (Step 1,一次性)
 
-⚠️ **必须**在启动 server 之前完成。位置 = `PPU/gemv_optimization/`(A-F 中 A-E) +
+⚠️ **必须**在启动 server 之前完成。位置 = `PPU/gemv_optimization/`(A-G 类) +
 `PPU/inductor_hook_PPU/hook/`(F)。
+
+**类清单**(共 7 类 14 文件):
+
+| 类 | 来源 | 部署目标 | 作用 | 不打的代价 |
+|---|---|---|---|---|
+| **A** GEMV env | `gemv_optimization/.../environ.py` | `sglang/srt/environ.py` | 注册 `SGLANG_SAIL_USE_GEMV` 等 env vars | env vars 静默 no-op |
+| **B** W8A8 INT8 注入 + 框架 functional siblings | `gemv_optimization/.../w8a8_int8.py` | `sglang/srt/layers/quantization/w8a8_int8.py` | 把 `gemv_int8_i8i8bf16` 注入 apply 路径 + 新增 `_nm` functional siblings(给 ppu_kernels 框架) | decode 走 fallback;框架无法注册 |
+| **C** Wrapper 接入 | `gemv_optimization/.../{compile_utils,entrypoint}.py` | `sglang/srt/layers/deep_gemm_wrapper/` | 暴露 `gemv_nt_i8i8bf16` | AttributeError |
+| **D** GEMV JIT | `gemv_optimization/.../{__init__.py, jit_kernels/{__init__.py, gemv_int8.py}}` | `deep_gemm/` | GEMV JIT 编译 | GEMV 算子完全缺失 |
+| **E** ViT CG 修复 | `gemv_optimization/.../qwen3_vl.py` + `.../ppu_fa3_hooks.py` | `sglang/srt/models/qwen3_vl.py` + `sglang/srt/hardware_backend/ppu/attention/ppu_fa3_hooks.py` | 让 ViT 走 PPU 原生 FA3 + 杜绝 rotary workspace 懒扩展破坏 graph | 开 ViT CG 后精度 −15pp、cn 集直接崩到 0 |
+| **F** Inductor RoPE hook | `inductor_hook_PPU/hook/ppu_rotary_hooks.py` | `sglang/srt/hardware_backend/ppu/attention/ppu_rotary_hooks.py` + `sglang/srt/platforms/ppu.py` 加 1 行 import | 把 RoPE 包成 `torch.library.custom_op`,让 inductor 看不到函数体,绕开 `_get_sfdp_patterns` | 启动 ~30s 后崩 `Cannot copy between CPU and CUDA tensors during CUDA graph capture` |
+| **G** PPU-fused kernel 框架(架构修复)| `gemv_optimization/.../compilation/{ppu_kernels,pass_manager,backend}.py` | `sglang/srt/compilation/{ppu_kernels,pass_manager,backend}.py` | 让手写 CUDA kernel 能真正参与 inductor fusion,而不是 opaque 黑盒。`@ppu_fused_kernel` 装饰器 + `PpuPrologueFusionPass` 自动装上 | 框架不工作 — 手写 kernel 仍在 inductor 眼中是不透明节点 |
 
 ```bash
 cd /mnt/workspace/PPU
 
-# 1.1 — A/B/C/E: sglang 9 文件 + quant recipe
+# 1.1 — A/B/C/E: sglang 9 文件 + quant recipe + G 类
 cp -rv gemv_optimization/sglang-for-sail/python/sglang/* \
         /usr/local/lib/python3.12/site-packages/sglang/
 
@@ -162,21 +220,35 @@ grep -c "ppu_vision_flash_attn_varlen_func" \
 ls /usr/local/lib/python3.12/site-packages/sglang/srt/hardware_backend/ppu/attention/ppu_rotary_hooks.py
 # F2
 grep "ppu_rotary_hooks" /usr/local/lib/python3.12/site-packages/sglang/srt/platforms/ppu.py  # ≥ 1
+# G1 — framework module
+ls /usr/local/lib/python3.12/site-packages/sglang/srt/compilation/ppu_kernels.py   # exists
+# G2 — w8a8_int8.py 多了 _nm siblings
+grep -c "ppu_fused_kernel\|gemv_int8_i8i8bf16_nm\|gemm_nt_i8i8bf16_nm" \
+  /usr/local/lib/python3.12/site-packages/sglang/srt/layers/quantization/w8a8_int8.py  # ≥ 3
+# G3 — pass_manager 末尾 patch
+grep -c "_ppu_patched_configure\|PpuPrologueFusionPass installed" \
+  /usr/local/lib/python3.12/site-packages/sglang/srt/compilation/pass_manager.py  # ≥ 2
+# G4 — wrapper 默认走 inductor (而不是 server_args.py 默认的 eager)
+grep -oE "SGLANG_PIECEWISE_CUDA_GRAPH_COMPILER.*inductor" \
+  /mnt/workspace/PPU/evaluation_wrapper.py  # 必须存在
 
 # Server 启动日志回执:
 LATEST=$(ls -t /mnt/workspace/PPU/logs/sglang_server_*.log | head -1)
 grep "SGLANG_SAIL_USE_ACEXT_CUDA version" "$LATEST"   # 见 "1050100, token limit: 4096"
 grep "Applied 1 hook(s) to sglang.srt.layers.rotary_embedding.utils.apply_rotary_pos_emb" "$LATEST"  # 至少 1 行
+grep "PpuPrologueFusionPass installed" "$LATEST"      # G 类框架装上了
+grep -oE "piecewise_cuda_graph_compiler='[^']+'" "$LATEST" | head -1   # 必须是 'inductor'
 ```
 
 ### 3.2 跑分期望(100 样本,warmup ≥ 8)
 
-| 检查项 | 期望 |
+| 检查项 | 期望(R8 默认 / inductor) |
 |---|---|
-| accuracy (en, R6) | **0.74 ± 0.08**(100 样本 95% CI 噪声主导)|
-| accuracy (cn, R6) | **0.82**(= BF16 baseline,INT8 零损失)|
-| TTFT median (en, R6) | **63–66 ms** |
-| throughput (en, R6) | **410–430 tok/s** |
+| accuracy (en) | **0.73 ± 0.08**(100 样本 95% CI 噪声主导)|
+| accuracy (cn) | **0.82**(= BF16 baseline,INT8 零损失)|
+| TTFT median (en, post-warmup 92) | **60–66 ms** |
+| throughput avg (en) | **405–415 tok/s** |
+| total elapsed | **~51 s** |
 | failed_samples | 0 |
 | None parses | 0 |
 | 接口契约 | `generate_with_metrics` 不变 |

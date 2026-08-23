@@ -119,6 +119,70 @@ def gemv_int8_i8i8bf16(
     deep_gemm_wrapper.gemv_nt_i8i8bf16((A, As), (B, Bs), C)
 
 
+# ---------------------------------------------------------------------------
+# Functional (non-mutating) variants — inductor-fusable.
+# ---------------------------------------------------------------------------
+#
+# The mutating API above is kept for backward compatibility and for call sites
+# that pre-allocate ``out`` and reuse the same buffer across iterations.
+# The functional variants below are registered via the PPU-kernels framework
+# so that torch.compile / inductor treats them as a known extern kernel and
+# can fuse a Triton prologue / epilogue around them (see
+# :mod:`sglang.srt.compilation.ppu_kernels`).
+#
+# During CUDA graph capture the ``torch.empty`` allocation is amortized
+# (sglang reuses the same output buffer across iterations), so the extra
+# allocation cost is negligible in practice.
+
+from sglang.srt.compilation.ppu_kernels import ppu_fused_kernel  # noqa: E402
+
+
+@ppu_fused_kernel(
+    name="gemv_int8_i8i8bf16_nm",
+    output=("C", torch.bfloat16),
+    output_shape_from="A",
+    cpp_symbol="sglang::gemv_int8_i8i8bf16",
+    epilogue_fusion=("bias_add",),
+)
+def gemv_int8_i8i8bf16_nm(
+    A: torch.Tensor,
+    As: torch.Tensor,
+    B: torch.Tensor,
+    Bs: torch.Tensor,
+) -> torch.Tensor:
+    """Functional INT8 GEMV. Returns a new bf16 tensor of shape ``(A.shape[0], B.shape[0])``."""
+    C = torch.empty(
+        (A.shape[0], B.shape[0]),
+        dtype=torch.bfloat16,
+        device=A.device,
+    )
+    deep_gemm_wrapper.gemv_nt_i8i8bf16((A, As), (B, Bs), C)
+    return C
+
+
+@ppu_fused_kernel(
+    name="gemm_nt_i8i8bf16_nm",
+    output=("C", torch.bfloat16),
+    output_shape_from="A",
+    cpp_symbol="sglang::gemm_nt_i8i8bf16",
+    epilogue_fusion=("bias_add",),
+)
+def gemm_nt_i8i8bf16_nm(
+    A: torch.Tensor,
+    As: torch.Tensor,
+    B: torch.Tensor,
+    Bs: torch.Tensor,
+) -> torch.Tensor:
+    """Functional INT8 GEMM. Returns a new bf16 tensor of shape ``(A.shape[0], B.shape[0])``."""
+    C = torch.empty(
+        (A.shape[0], B.shape[0]),
+        dtype=torch.bfloat16,
+        device=A.device,
+    )
+    deep_gemm_wrapper.gemm_nt_i8i8bf16((A, As), (B, Bs), C)
+    return C
+
+
 class W8A8Int8Config(QuantizationConfig):
     """Config class for W8A8 Quantization.
 

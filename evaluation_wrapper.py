@@ -200,7 +200,10 @@ class _SGLangServer:
                 # That covers 384-token image prefill and avoids runtime
                 # recompile. Set SGLANG_PIECEWISE_CUDA_GRAPH_MAX_TOKENS=256
                 # to restore the R8 limited-capture semantics for debugging.
-                "--piecewise-cuda-graph-compiler", "eager",
+                # 默认走 inductor(真调 torch._inductor.compile_fx 算子融合);
+                # 设 SGLANG_PIECEWISE_CUDA_GRAPH_COMPILER=eager 可退回旧 eager 路径。
+                "--piecewise-cuda-graph-compiler",
+                os.environ.get("SGLANG_PIECEWISE_CUDA_GRAPH_COMPILER", "inductor"),
                 "--mm-attention-backend", "fa3",
                 # 普通 CUDA Graph max BS — R6 sweet spot = 16(覆盖 bs=1..16);
                 # 用户可设 SGLANG_CUDA_GRAPH_MAX_BS=2 / 256 调整覆盖范围
