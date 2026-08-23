@@ -12,19 +12,40 @@
 
 ## 2.1 推荐方案(三档)
 
-| 优先级 | 方案 | 模型 | attention backend | 单样本 acc (en/cn 100) | TTFT median (ms) | throughput (tok/s) | patch 需求 |
+| 优先级 | 方案 | 模型 | attention backend | 单样本 acc (en/cn 100) | TTFT (ms) | throughput (tok/s) | patch 需求 |
 |---|---|---|---|---|---|---|---|
-| **首选 ⭐** | **R6 (极致 TTFT+acc)** | S2-aggressive INT8 | triton_attn | **0.74 / 0.82** | **63** | **429** | 全 6 类 |
-| 冲吞吐 | R8 (极致 TPS) | S2-aggressive INT8 | fa3 | 0.73 / — | 66 | 434 | 全 6 类 |
+| **首选 ⭐ 提交件** | **当前 baseline (2026-08-23)** | S2-aggressive INT8 | fa3 | **0.73** | **72.7** | **411.6** | 全 6 类 |
+| 探索 | + ISA v10 GEMV (opt-in) | 同上 | fa3 | 0.73 | 75.3 | 421.1 | + `pip install sglang_kernel_v10` |
+| 历史 | R6 (2026-08-21, 不可复现) | S2-aggressive INT8 | triton_attn | 0.74 / 0.82 | 63 | 429 | 全 6 类 |
+| 历史 | R8 (2026-08-21, 不可复现) | S2-aggressive INT8 | fa3 | 0.73 / — | 66 | 434 | 全 6 类 |
 | 对照基线 | G 组 bf16 | 原 BF16 (无 patch) | fa3 | 0.78 / 0.82 | 73 | 357 (500 样本) | 无 |
 
-> **R6 / R8 在 cn 数据集上 INT8 量化零精度损失**(acc 0.82 = 0.82)。
-> 比赛私有测试集若中英混合,整体量化损失 < 4pp。
+### v10 评分分析(官方公式 `0.4 × acc + 0.3 × TTFT + 0.3 × TPS`)
+
+| 指标 | 当前 baseline | +v10 | 改善率 | 公式权重 | 净贡献 |
+|---|---|---|---|---|---|
+| acc | 0.73 | 0.73 | 0 | 0.4 | 0 |
+| TTFT (ms) | 72.7 | 75.3 | -3.6% | 0.3 | **-1.08%** |
+| TPS | 411.6 | 421.1 | +2.3% | 0.3 | +0.69% |
+| **总分** | — | — | — | — | **-0.39% (微负)** |
+
+**结论**: v10 净评分几乎为零。TTFT 回归 3.6%(可能 first-request 冷启动噪音,
+未必每轮都出现)刚好抵消 TPS 收益。**默认配置不挂 v10**,opt-in 留给私测 /
+后续 Phase 3.3 优化基础。
+
+### 关于历史 R6/R8 数字
+
+R6/R8 在"推荐方案"表中的数字 (TTFT 63/66ms, TPS 429/434) 来自 2026-08-21 的实测,
+**目前不可复现** — wrapper 默认 backend 与 env 行为已漂移。2026-08-23 实测的
+"当前 baseline" (TTFT 72.7ms, TPS 411.6) 是本次唯一可信 SSOT。R6/R8 历史数字
+仅作上下文参考,**不参与本次提交决策**。
 
 数字来源:
-- R6 / R8 (en 100):`../results_summary.md` §2 2×2 网格 + 2026-08-21 实测
-- G 组 (en 500):`../results_summary.md` §1.5 BF16 baseline + `02_RESULTS.md` §2.2 历史
-- CN 0.82:`../results_summary.md` §1.5 cn 100/200 实测
+- 当前 baseline (en 100, 2026-08-23):`../result_repro/result_dev_en_v10_DISABLED_100.json`
+- +v10 (en 100, 2026-08-23):`../result_repro/result_dev_en_v10_FIXED_100.json`
+- R6 / R8 (en 100, 2026-08-21):`../results_summary.md` §2 2×2 网格(已不适用)
+- G 组 (en 500):`../results_summary.md` §1.5 BF16 baseline
+- CN 0.82:`../results_summary.md` §1.5 cn 100/200 实测(历史)
 
 ## 2.2 横向对比:G 组 vs S2 + ACEXT (100 样本同 qid 对照)
 

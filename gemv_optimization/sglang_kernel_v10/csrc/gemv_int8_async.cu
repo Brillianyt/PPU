@@ -73,78 +73,10 @@ __device__ __forceinline__ void cp_async_wait() {
 }
 
 // =============================================================================
-// Main kernel
+// Main kernel — body in shared header (used by both v10 .cu and persistent .cu)
 // =============================================================================
 
-template <int BlockSize, int NPerThread, int NUM_UNROLL>
-__device__ __forceinline__ void gemv_int8_async_impl(
-    const int8_t* __restrict__ A,
-    const int8_t* __restrict__ W,
-    __nv_bfloat16* __restrict__ out,
-    int K, int N,
-    float a_scale,                    // As[0] — scalar (MVP supports M=1)
-    const float* __restrict__ b_scale // Bs[N] — per-row weight scale
-) {
-    constexpr int ThreadPerN = 32;
-    constexpr int NLoopStep = BlockSize / ThreadPerN;        // 8 warps
-    constexpr int alignmentB = sizeof(int4) / sizeof(int8_t); // 16
-    constexpr int kstep_lane = NUM_UNROLL * alignmentB;        // 64
-
-    int tid = threadIdx.x;
-    int lane_k = tid % ThreadPerN;                          // 0..31
-    int warp_id = tid / ThreadPerN;                         // 0..7
-    int tid_n = __shfl_sync(0xffffffff, warp_id, 0);        // broadcast
-    int id_n = blockIdx.x * (NPerThread * NLoopStep) + tid_n * NPerThread;
-    if (id_n >= N) return;
-
-    int lane_k_off = lane_k * kstep_lane;
-
-    // Pre-load A vector (each lane holds 64 bytes of A, contiguous)
-    int4 vreg_a[NUM_UNROLL];
-    #pragma unroll
-    for (int u = 0; u < NUM_UNROLL; u++) {
-        int kk = lane_k_off + u * alignmentB;
-        vreg_a[u] = (kk + alignmentB <= K) ?
-            *reinterpret_cast<const int4*>(&A[kk]) : make_int4(0, 0, 0, 0);
-    }
-
-    // Main loop over NPerThread cols (each warp processes 4 contiguous cols)
-    for (int nloop = 0; nloop < NPerThread; nloop++) {
-        int cur_col = id_n + nloop;
-        if (cur_col >= N) continue;
-
-        int4 vreg_b[NUM_UNROLL];
-        const int8_t* b_row = W + cur_col * K;
-        #pragma unroll
-        for (int u = 0; u < NUM_UNROLL; u++) {
-            int kk = lane_k_off + u * alignmentB;
-            vreg_b[u] = (kk + alignmentB <= K) ?
-                *(reinterpret_cast<const int4*>(&b_row[kk])) : make_int4(0, 0, 0, 0);
-        }
-
-        int32_t local_sum = 0;
-        #pragma unroll
-        for (int u = 0; u < NUM_UNROLL; u++) {
-            const int8_t* a_bytes = reinterpret_cast<const int8_t*>(&vreg_a[u]);
-            const int8_t* b_bytes = reinterpret_cast<const int8_t*>(&vreg_b[u]);
-            int32_t acc = 0;
-            #pragma unroll
-            for (int j = 0; j < 16; j++) acc += (int32_t)a_bytes[j] * (int32_t)b_bytes[j];
-            local_sum += acc;
-        }
-
-        // Warp reduce (32 lanes → 1)
-        #pragma unroll
-        for (int off = 16; off > 0; off >>= 1)
-            local_sum += __shfl_down_sync(0xffffffff, local_sum, off);
-
-        // Lane 0 writes output with per-row scale applied
-        if (lane_k == 0) {
-            float scaled = (float)local_sum * a_scale * b_scale[cur_col];
-            out[cur_col] = __float2bfloat16(scaled);
-        }
-    }
-}
+#include "gemv_int8_async_impl.h"
 
 // =============================================================================
 // __global__ entry — explicit instantiation for BlockSize=256, NPerThread=4, NUM_UNROLL=4

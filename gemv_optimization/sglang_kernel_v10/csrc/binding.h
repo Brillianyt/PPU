@@ -42,4 +42,24 @@ void launch_gemv_int8_async_v2(
     cudaStream_t stream
 );
 
+// Phase 3.3: persistent decoder — one launch processes a queue of GEMVs.
+// work_items points to device memory; total_work is the queue length.
+void launch_persistent_gemv_decoder(
+    int total_work,
+    const void* work_items,   // actually GemvWorkItem* (opaque to keep header C-clean)
+    cudaStream_t stream
+);
+
+// Phase 3.4: fused Q+K+V INT8 GEMV — 1 launch produces 3 outputs sharing A.
+// MVP: N_q == N_k == N_v.
+void launch_fused_qkv(
+    const int8_t* A,
+    const int8_t* Wq, const int8_t* Wk, const int8_t* Wv,
+    __nv_bfloat16* out_q, __nv_bfloat16* out_k, __nv_bfloat16* out_v,
+    int M, int K, int N,
+    const float* As,
+    const float* Bs_q, const float* Bs_k, const float* Bs_v,
+    cudaStream_t stream
+);
+
 }  // extern "C"

@@ -39,17 +39,28 @@ PPU_SDK=/usr/local/PPU_SDK python3 benchmark_public.py \
 ```
 [1] 部署 7 类共 14 文件 patch (§2.4 Step 1)
        ↓
-[2] 启动 sglang server(wrapper 自动启,无需手工)
+[2] (可选) 部署 ISA v10 GEMV wheel — opt-in 增强
        ↓
-[3] benchmark_public.py 跑分(--backend sglang 自动连 wrapper)
+[3] 启动 sglang server(wrapper 自动启,无需手工)
        ↓
-[4] 读 result_*.json,核对 §3.2 期望数字
+[4] benchmark_public.py 跑分(--backend sglang 自动连 wrapper)
        ↓
-[5] 若不符,按 §4 故障表定位
+[5] 读 result_*.json,核对 §3.2 期望数字
+       ↓
+[6] 若不符,按 §4 故障表定位
 ```
 
 patches 通过纯 Python `cp` 覆盖到 site-packages,**不改 C++ 扩展**。回退 `git restore`
 site-packages 即可还原。
+
+> **ISA v10 GEMV (opt-in, 2026-08-23)** — 若需要 v10 增强路径:
+> ```bash
+> cd /mnt/workspace/PPU/gemv_optimization/sglang_kernel_v10
+> bash install_v10.sh    # pip install sglang_kernel_v10 + 部署 dispatcher patch
+> export SGLANG_ISA_V10_ENABLE=1   # 启用 v10 fast path
+> ```
+> 默认关闭,opt-in。详见 [`docs/04_OPTIMIZATIONS.md §4.7`](docs/04_OPTIMIZATIONS.md)
+> + [`技术方案报告_完整版.md §4.4 / §5.5`](技术方案报告_完整版.md)。
 
 ## 2. 三档启动配置 (挑选其中一个)
 
@@ -151,6 +162,7 @@ PPU_SDK=/usr/local/PPU_SDK python3 benchmark_public.py ...
 | **E** ViT CG 修复 | `gemv_optimization/.../qwen3_vl.py` + `.../ppu_fa3_hooks.py` | `sglang/srt/models/qwen3_vl.py` + `sglang/srt/hardware_backend/ppu/attention/ppu_fa3_hooks.py` | 让 ViT 走 PPU 原生 FA3 + 杜绝 rotary workspace 懒扩展破坏 graph | 开 ViT CG 后精度 −15pp、cn 集直接崩到 0 |
 | **F** Inductor RoPE hook | `inductor_hook_PPU/hook/ppu_rotary_hooks.py` | `sglang/srt/hardware_backend/ppu/attention/ppu_rotary_hooks.py` + `sglang/srt/platforms/ppu.py` 加 1 行 import | 把 RoPE 包成 `torch.library.custom_op`,让 inductor 看不到函数体,绕开 `_get_sfdp_patterns` | 启动 ~30s 后崩 `Cannot copy between CPU and CUDA tensors during CUDA graph capture` |
 | **G** PPU-fused kernel 框架(架构修复)| `gemv_optimization/.../compilation/{ppu_kernels,pass_manager,backend}.py` | `sglang/srt/compilation/{ppu_kernels,pass_manager,backend}.py` | 让手写 CUDA kernel 能真正参与 inductor fusion,而不是 opaque 黑盒。`@ppu_fused_kernel` 装饰器 + `PpuPrologueFusionPass` 自动装上 | 框架不工作 — 手写 kernel 仍在 inductor 眼中是不透明节点 |
+| **(2026-08-23 新增) ISA v10 GEMV wheel** | `gemv_optimization/sglang_kernel_v10/`(独立 Python 包,**非** site-packages 覆盖) | `pip install .` → `site-packages/sglang_kernel_v10/_C.so` + 自动部署 `w8a8_int8.py` dispatcher patch | K=2048 M=1 INT8 GEMV fast path (3-4.5× microbench) | **opt-in 增强**,不打的代价 = 用默认 deep_gemm GEMV (不影响 R6 提交件) |
 
 ```bash
 cd /mnt/workspace/PPU

@@ -48,9 +48,14 @@ EXT_NAME = "sglang_kernel_v10._C"   # → installs as sglang_kernel_v10/_C*.so
 CUDA_SOURCES = [
     os.path.join(CSRC_DIR, "gemv_int8_async.cu"),
     os.path.join(CSRC_DIR, "gemv_int8_async_v2.cu"),
+    os.path.join(CSRC_DIR, "gemv_persistent_decoder.cu"),
+    os.path.join(CSRC_DIR, "gemv_fused_qkv.cu"),
 ]
-# Single C++ wrapper that registers BOTH pybind11 symbols.
-CPP_SOURCES = [os.path.join(CSRC_DIR, "gemv_int8_async_wrapper.cpp")]
+# Single C++ wrapper that registers all pybind11 symbols.
+CPP_SOURCES = [
+    os.path.join(CSRC_DIR, "gemv_int8_async_wrapper.cpp"),
+    os.path.join(CSRC_DIR, "gemv_persistent_decoder_wrapper.cpp"),
+]
 ALL_SOURCES = CUDA_SOURCES + CPP_SOURCES
 
 INCLUDE_DIRS = [
@@ -74,13 +79,15 @@ CFLAGS = ["-O3", "-fPIC", "-Wno-deprecated-declarations", "-Wno-abi"]
 
 setup(
     name="sglang_kernel_v10",
-    version="0.1.1",
+    version="0.1.4",
     description="ISA Phase 3.2/3.2.1 — INT8 GEMV fast path (4.5× vs deep_gemm at K=2048, M=1)",
     long_description=open(os.path.join(PKG_DIR, "README.md")).read()
                    if os.path.exists(os.path.join(PKG_DIR, "README.md")) else "",
     long_description_content_type="text/markdown",
     packages=["sglang_kernel_v10"],
     package_dir={"sglang_kernel_v10": "sglang_kernel_v10"},
+    package_data={"sglang_kernel_v10": ["*.py"]},
+    include_package_data=False,
     ext_modules=[
         # Single .so with both v10 (HBM-direct) and v2 (cp.async double-buffer)
         # registered as separate pybind11 symbols.

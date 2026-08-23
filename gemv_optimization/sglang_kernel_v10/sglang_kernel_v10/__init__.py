@@ -26,7 +26,30 @@ Architecture note:
       - Standard `import` semantics, exactly like flash-attn / deep_gemm
 """
 
-from ._C import gemv_int8_async, gemv_int8_async_v2
+from ._C import (
+    gemv_int8_async,
+    gemv_int8_async_v2,
+    build_gemv_queue,
+    persistent_gemv_decoder_launch,
+    fused_qkv,
+)
 
-__all__ = ["gemv_int8_async", "gemv_int8_async_v2"]
-__version__ = "0.1.1"
+# Auto-register v10 with torch.library + sglang ops namespace + inductor
+# pattern matchers (deep integration with torch.compile).
+#
+# Both `torch_ops` and `inductor_patterns` are intentionally imported for
+# their *side effects* (registering custom ops + inductor patterns at
+# import time). sglang should `import sglang_kernel_v10` once during its
+# startup and these registrations fire automatically — no further user
+# action needed.
+import sglang_kernel_v10.torch_ops          # noqa: F401  (side effects)
+import sglang_kernel_v10.inductor_patterns  # noqa: F401  (side effects)
+
+__all__ = [
+    "gemv_int8_async",
+    "gemv_int8_async_v2",
+    "build_gemv_queue",
+    "persistent_gemv_decoder_launch",
+    "fused_qkv",
+]
+__version__ = "0.1.4"

@@ -24,13 +24,23 @@ from sglang.srt.layers import deep_gemm_wrapper
 try:
     import sglang_kernel_v10 as _isa_v10
     _ISA_V10_AVAILABLE = True
+    # Lazy-register v10 ops on sglang's torch.ops.sglang namespace so
+    # inductor / ppu_fused_kernel can see them. Safe no-op if sglang
+    # isn't imported yet (e.g. w8a8_int8.py imported before sglang).
+    try:
+        from sglang_kernel_v10.torch_ops import register_sglang_alias
+        register_sglang_alias()
+    except Exception:
+        pass
 except ImportError:
     _isa_v10 = None
     _ISA_V10_AVAILABLE = False
 
 # ABLATION A: temporarily disable v10 fast path to isolate regression source.
-# Set to True to enable the v10 GEMV fast path; False to fall through to deep_gemm.
-_ISA_V10_ENABLE = True
+# Default OFF (2026-08-23 决策: 净评分接近 0, TTFT 回归抵消 TPS 收益, 详见
+# PPU/docs/02_RESULTS.md §2.1 + README.md)。
+# 设 True 启用 v10 fast path;False 走 deep_gemm baseline。
+_ISA_V10_ENABLE = False
 
 # Per-data_ptr cache of (N, K) row-major weight buffers for the v10 fast path.
 #
@@ -171,7 +181,7 @@ def gemv_int8_i8i8bf16(
     Bs: torch.Tensor,
     C: torch.Tensor,
 ) -> None:
-    # ISA fast path: K=2048, M<=8 → our v10 kernel (3-4.5× vs deep_gemm).
+    # ISA fast path: K=2048, M==1 → our v10 kernel (3-4.5× vs deep_gemm).
     # The fast-path kernel is a prebuilt .so (sglang_kernel_v10 wheel),
     # NOT JIT-loaded — so it can be safely used inside CUDA graph capture.
     #
@@ -179,15 +189,130 @@ def gemv_int8_i8i8bf16(
     # is transposed at process_weights_after_loading). Our kernel wants
     # (N, K) row-major for coalesced access. We cache the transposed buffer
     # by B.data_ptr() so the (16MB for hidden=2048) memcpy happens ONCE per
-    # layer, not on every decode step.
-    if _ISA_V10_ENABLE and _ISA_V10_AVAILABLE and A.shape[1] == 2048 and A.shape[0] <= 8:
-        try:
-            W_nk = _isa_v10_get_w_nk(B)  # B is (K, N); we return (N, K)
-            _isa_v10.gemv_int8_async(A, W_nk, As, Bs, C)
-            return
-        except Exception:
-            pass  # fall back to deep_gemm if fast path fails
+    # layer, NOT on every decode step.
+    #
+    # Hot-path optimization: cache is pre-populated in
+    # process_weights_after_loading, so the dict lookup hits 100% of the time.
+    # We still do the dict lookup (microseconds) for safety against missing
+    # entries; the common case is one dict.get + one registered op call.
+    #
+    # IMPORTANT (Phase 3.2 v10 + TTFT fix — this is the v10_TTFTFIX baseline,
+    # TPS 417.4). Direct pybind call into the prebuilt v10 .so:
+    #   - No registered-op wrapper overhead (Stream A regressed -4.5%)
+    #   - No PpuKernelRegistry lookup (Stream C regressed -2-3%)
+    #   - Mutating form (writes into caller-provided C) avoids the copy_
+    #   that the functional alias requires.
+    # The previous Stream A attempt (torch.ops.sglang.v10_gemv_int8_async +
+    # C.copy_(out)) was reverted on 2026-08-23 after a 100-sample e2e
+    # benchmark confirmed TPS 417 → 398 (-4.5%) regression. The functional
+    # op + copy_ is too expensive on mmbench's many short completions
+    # (each small completion pays the extra alloc+copy).
+    if _ISA_V10_ENABLE and A.shape[1] == 2048 and A.shape[0] == 1:
+        key = B.data_ptr()
+        W_nk = _ISA_V10_W_CACHE.get(key)
+        if W_nk is None:
+            # Cache miss (e.g. layer was re-quantized at runtime): rebuild
+            W_nk = B.contiguous()
+            _ISA_V10_W_CACHE[key] = W_nk
+        # Mutating pybind call — writes bf16 directly into C.
+        _isa_v10.gemv_int8_async(A, W_nk, As, Bs, C)
+        return
     deep_gemm_wrapper.gemv_nt_i8i8bf16((A, As), (B, Bs), C)
+
+
+def gemv_int8_fused_qkv_fake(
+    A: torch.Tensor,
+    Wq: torch.Tensor,
+    Wk: torch.Tensor,
+    Wv: torch.Tensor,
+    As: torch.Tensor,
+    Bs_q: torch.Tensor,
+    Bs_k: torch.Tensor,
+    Bs_v: torch.Tensor,
+    out_q: torch.Tensor,
+    out_k: torch.Tensor,
+    out_v: torch.Tensor,
+) -> None:
+    # Inplace op (writes to out_q/out_k/out_v) — fake returns None for shape
+    # propagation. Shapes of the mutating args are checked at dispatch time.
+    return
+
+
+@register_custom_op(
+    mutates_args=["out_q", "out_k", "out_v"],
+    fake_impl=gemv_int8_fused_qkv_fake,
+)
+def gemv_int8_fused_qkv(
+    A: torch.Tensor,
+    Wq: torch.Tensor,
+    Wk: torch.Tensor,
+    Wv: torch.Tensor,
+    As: torch.Tensor,
+    Bs_q: torch.Tensor,
+    Bs_k: torch.Tensor,
+    Bs_v: torch.Tensor,
+    out_q: torch.Tensor,
+    out_k: torch.Tensor,
+    out_v: torch.Tensor,
+) -> None:
+    """Fused Q+K+V INT8 GEMV (Phase 3.4).
+
+    Computes out_q = A @ Wq, out_k = A @ Wk, out_v = A @ Wv in one kernel
+    launch. The v10 ``fused_qkv`` kernel shares the A load + write
+    bandwidth across Q/K/V — microbench gives **1.40× speedup** vs 3
+    separate v10 calls at N=2048 (self-attn Q/K/V) with identical outputs
+    (max diff = 0 vs fp32 ref and inside CUDA graph capture).
+
+    Shape contract:
+      - A:      (1, 2048) int8
+      - Wq/Wk/Wv: each (N, 2048) int8 row-major, **same N** (MVP constraint)
+      - As:     (1,)       fp32 (per-token activation scale)
+      - Bs_*:   (N,)       fp32 (per-channel weight scales, one per projection)
+      - out_*:  (1, N)     bf16 contiguous (written in-place)
+
+    Trigger conditions (all must hold):
+      1. v10 kernel wheel is installed AND enabled
+      2. A.shape == (1, 2048)
+      3. Wq.shape == Wk.shape == Wv.shape   (symmetric N — kernel MVP)
+
+    Fallback (any condition fails): three separate ``gemv_int8_i8i8bf16``
+    calls. This reuses the existing v10 single-GEMV fast path + cache, so
+    no functionality is silently broken; we just lose the 1.40× fused speedup.
+
+    Note on Qwen3.5-2B self-attn: the QKVParallelLinear layout has
+    N_q = 4096 (8 heads × head_dim=256, doubled for attn_output_gate) but
+    N_k = N_v = 512 (2 kv heads × head_dim=256) — asymmetric, so condition 3
+    fails and the dispatcher falls back. The dispatcher is registered and
+    ready for future symmetric-N models (or after relaxing the MVP constraint
+    in the kernel).
+    """
+    if (
+        _ISA_V10_ENABLE
+        and _ISA_V10_AVAILABLE
+        and A.shape[1] == 2048
+        and A.shape[0] == 1
+        and Wq.shape == Wk.shape == Wv.shape
+    ):
+        # Convert sglang's (N, K)-shape column-major views into (N, K)
+        # row-major copies. _isa_v10_get_w_nk caches by data_ptr() so the
+        # 16MB memcpy happens at most once per weight tensor.
+        W_nk_q = _isa_v10_get_w_nk(Wq)
+        W_nk_k = _isa_v10_get_w_nk(Wk)
+        W_nk_v = _isa_v10_get_w_nk(Wv)
+        _isa_v10.fused_qkv(
+            A,
+            W_nk_q, W_nk_k, W_nk_v,
+            As,
+            Bs_q, Bs_k, Bs_v,
+            out_q, out_k, out_v,
+        )
+        return
+
+    # Fallback: 3 separate v10 GEMVs (each goes through the existing
+    # gemv_int8_i8i8bf16 dispatcher — reuses the cache + v10 fast path).
+    gemv_int8_i8i8bf16(A, As, Wq, Bs_q, out_q)
+    gemv_int8_i8i8bf16(A, As, Wk, Bs_k, out_k)
+    gemv_int8_i8i8bf16(A, As, Wv, Bs_v, out_v)
 
 
 # ---------------------------------------------------------------------------
@@ -363,6 +488,14 @@ class W8A8Int8LinearMethod(LinearMethodBase):
                 assert False, "W8A8Int8LinearMethod on CPU only works on AMX or Arm64"
         else:
             layer.weight = Parameter(layer.weight.t(), requires_grad=False)
+            # ISA v10 fast path: pre-populate the (N, K) row-major cache for this
+            # layer so the first decode step doesn't pay a 16MB memcpy per layer
+            # (was the main cause of TTFT regression in initial integration).
+            # The cache key is layer.weight.data_ptr() (== dispatcher B.data_ptr()
+            # because .t() is a view, not a copy).
+            if _ISA_V10_AVAILABLE and _ISA_V10_ENABLE:
+                W_nk = layer.weight.t().contiguous()  # (N, K) row-major
+                _ISA_V10_W_CACHE[layer.weight.data_ptr()] = W_nk
         layer.weight_scale = Parameter(layer.weight_scale.data, requires_grad=False)
 
     def create_weights(

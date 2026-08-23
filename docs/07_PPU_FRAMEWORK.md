@@ -256,7 +256,34 @@ Step 3:把这两段代码加到 `gemv_optimization/sglang-for-sail/python/sglang
 
 ---
 
-## 8. 参考
+## 8. ISA v10 GEMV — 本框架的"下一个 kernel"参考实现
+
+> ISA Phase 3.2 v10 (`/mnt/workspace/ISA/src/sglang_kernel_v10/`) 是按本框架模式
+> 集成的**手写 CUDA kernel**——走的是工程化正解路径(`pip install .` wheel 而非
+> JIT hack)。虽然当前 `mutating` API 集成,没用到本框架的 `@ppu_fused_kernel`
+> 装饰器层,但 ISA v10 展示了**集成到 sglang decode path 的完整工程闭环**:
+>
+> | 环节 | ISA v10 的做法 | 与本框架的关系 |
+> |---|---|---|
+> | kernel 形态 | `gemv_int8_async_impl` 函数化模板 | 未来用 `@ppu_fused_kernel` 包装即可 |
+> | dispatcher | `w8a8_int8.gemv_int8_i8i8bf16` 一个 if-else | 与现有 GEMV/GEMM 分派共用 |
+> | 集成模式 | `pip install sglang_kernel_v10` wheel | 与本框架的 install-time compile 模式一致 |
+> | cache 策略 | `_ISA_V10_W_CACHE[B.data_ptr()]` 永久 | 不影响框架的 cache 模型 |
+> | CUDA Graph 兼容 | **预编译 wheel**(无 JIT 编译) | 与框架要求一致 — 不能在 CUDA Graph capture 期间编译 |
+>
+> **端到端结果**(100 样本 mmbench_dev_en, opt-in):
+> - TPS 411.6 → **421.1** (+2.3%)
+> - TTFT 72.7 → 75.3 (avg, +3.6%)
+> - acc 0.73 = 0.73 (无变化)
+> - 官方公式净评分:约 **-0.4%** (微负,TTFT 回归抵消 TPS 收益)
+>
+> **判定**: 默认关闭, opt-in (`SGLANG_ISA_V10_ENABLE=1`)。若 Phase 3.3 persistent
+> kernel 上线,把 v10 函数化集成进持久 kernel(消 launch overhead 同时保留
+> HBM-direct SIMT 路径),净评分会回正。详见 `技术方案报告_完整版.md §4.4 / §5.5 / §12 F9-F10 / §13.3`。
+
+---
+
+## 9. 参考
 
 - `sglang/srt/compilation/pass_manager.py` — PostGradPassManager 基类
 - `sglang/srt/compilation/inductor_pass.py` — SGLangInductorPass 基类

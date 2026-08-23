@@ -1,9 +1,21 @@
-# 04. 5 个核心优化详解
+# 04. 6 个核心优化详解 (2026-08-23 加 §4.7 ISA v10)
 
 > 本文件只讲**做了什么 + 为什么 + 怎么布署**。数字 / 启用收益见
 > [`02_RESULTS.md`](02_RESULTS.md)。历史诊断细节见
 > [`../INT8_strategy.md`](../INT8_strategy.md) 和
 > [`../vit_graph_optimization.md`](../vit_graph_optimization.md)。
+>
+> 完整叙事主线 + 数据驱动因果链见 [`技术方案报告_完整版.md`](../技术方案报告_完整版.md) §1-§13。
+
+| § | 优化 | 端到端收益 (vs BF16) | 状态 |
+|---|---|---|---|
+| 4.1 | S2-aggressive INT8 量化 | TPS +20%, cn 0pp loss | 默认 |
+| 4.2 | GEMV M-aware 双阶段 | TTFT −14%, TPS +20% | 默认 |
+| 4.3 | FLA_CUDA (GDN 原生) | TTFT −80% | 默认 |
+| 4.4 | ViT CUDA Graph 修复 | TTFT −13%, acc ±0 | 默认 |
+| 4.5 | Inductor RoPE hook | 解决 inductor 崩溃 | 默认 |
+| 4.6 | ACEXT vs GEMV 决策 | GEMV +2.3% over ACEXT | fork 强制 ACEXT,见 caveat |
+| **4.7** | **ISA v10 GEMV (Phase 3.2)** | **opt-in: TPS +2.3%, TTFT −3.6%** | **opt-in, 默认关** |
 
 ## 4.1 S2-aggressive INT8 量化 (W8A8)
 
@@ -290,21 +302,25 @@ PPU fork 的 `_handle_ppu_backends()` (server_args.py:1349-1355) 会强制设
 
 历史决策脉络见 `../conversations/KEY_DECISIONS.md`(决策 §38: ACEXT vs GEMV in CG)。
 
-## 4.6 ISA v10 INT8 GEMV prebuilt kernel (Phase 3.2)
+## 4.7 ISA v10 INT8 GEMV prebuilt kernel (Phase 3.2)
 
 > **TL;DR** — `/mnt/workspace/ISA/src/sglang_kernel_v10/` 是独立 Python wheel
 > (`pip install .` 装),里面 `gemv_int8_async.cu` 跑 K=2048 M=1 INT8 GEMV,比
 > deep_gemm 快 **3-4.5×**。端到端在 100 样本上 TPS **411.6 → 421.1 (+2.3%)**,
 > acc **0.73**(= baseline,无精度损失)。
+>
+> **状态: opt-in**(`SGLANG_ISA_V10_ENABLE=1`),不修改默认配置。原因:净评分
+> 公式下 TTFT -3.6% × 30% - TPS +2.3% × 30% ≈ -0.4%(微负)。详见
+> `02_RESULTS.md §2.1` + `技术方案报告_完整版.md §13.3`。
 
-### 4.6.1 思路
+### 4.7.1 思路
 
 deep_gemm 的 `gemvt.cuh` 在 M=1 decode 上只到 HBM peak 的 4.5%,HBM 实际读 ~1.5μs,
 剩 ~23μs 全是空转。v10 把每个 lane 的访问模式调成"在 (N, K) row-major W 上 64
 字节连续"(`NUM_UNROLL=4 × int4 stride 16`),32 lane 覆盖 2 KB 完美 coalesce,
 无 shmem 中转,直接 HBM → register → warp reduce → 写出。
 
-### 4.6.2 microbench(K=2048 N=2048 M=1,1000 iters)
+### 4.7.2 microbench(K=2048 N=2048 M=1,1000 iters)
 
 | kernel | 时延 | 有效带宽 | HBM peak 占比 |
 |---|---|---|---|
@@ -315,7 +331,7 @@ deep_gemm 的 `gemvt.cuh` 在 M=1 decode 上只到 HBM peak 的 4.5%,HBM 实际�
 来源:`ISA/experiments/004_cp_async_gemv/`。比 deep_gemm 快 4.5×,比 naive SIMD 快 4.0×。
 **生产 shape N=8192** 实测 10.21 μs vs deep_gemm 32.08 μs = **3.13×**。
 
-### 4.6.3 集成模式(从 JIT hack → 独立 wheel)
+### 4.7.3 集成模式(从 JIT hack → 独立 wheel)
 
 v10 不是把 .cu 文件塞进 sglang 目录 JIT 编译(`torch.utils.cpp_extension.load`),
 而是正经 Python package:
@@ -345,7 +361,7 @@ deep_gemm_wrapper.gemv_nt_i8i8bf16((A, As), (B, Bs), C)
 成 (N, K) row-major,**按 data_ptr() 缓存**,16MB memcpy 每层只一次。详见
 [`08_SYNC.md`](08_SYNC.md) §6 + `ISA/docs/05_INTEGRATION.md`。
 
-### 4.6.4 端到端结果(100 样本 mmbench_dev_en,同 wrapper 路径)
+### 4.7.4 端到端结果(100 样本 mmbench_dev_en,同 wrapper 路径)
 
 | 配置 | TPS | TTFT median | acc | 备注 |
 |---|---|---|---|---|
@@ -357,16 +373,39 @@ deep_gemm_wrapper.gemv_nt_i8i8bf16((A, As), (B, Bs), C)
 里不是 100%,其它耗时(prefill、attention、launch dispatch、PiCG 复用)摊薄了
 收益。**但完全无精度损失 + 与 baseline 完全兼容,值得上**。
 
-### 4.6.5 已知限制 + 下一步
+### 4.7.5 已知限制 + 下一步
 
 | 限制 | 影响 | 下一步 |
 |---|---|---|
 | 只支持 K=2048 | 大 K(6144) 走 deep_gemm fallback | 加 multi-K 模板 |
 | M=1 only | bs>1 走 deep_gemm fallback | M-aware launcher(M=1/2/4/8 unroll 选) |
-| 没 cp.async 双 buffer | HBM latency 没完全 hide | Phase 3.2.1(预计再 +20-50%) |
 | 没持久 kernel | 200+ GEMV launch | Phase 3.3 目标 500-700 tok/s |
 
-### 4.7 环境变量总表
+### 4.7.6 Phase 3.2.1 cp.async 双 buffer — 已实现,**未跑赢 v10**
+
+> 实测结果:v2 = 11.22 μs/iter vs v10 = 10.24 μs/iter(**v2 慢 9%**)。
+> correctness: v2 vs ref max diff = 0.0,v2 vs v10 max diff = 0.0。
+> **结论:不上线,留作 future work。**
+
+**根因分析**:
+- shmem 32-byte row width,4-way bank conflict:lane k 读 byte `k*64..k*64+15`,
+  lane (0,2,4,...,30) 撞 banks 0-3。int4 load 16字节 = 4 banks,2 lanes 同 banks
+  → 2-way conflict + 4 cycle serialization
+- cp.async commit_group / wait_group 的 host-side overhead 在每次迭代上摊销
+- v10 直接 HBM→register 已是 32 lanes coalesced optimal(512 字节/cycle = 4 sectors),
+  cp.async 的"延迟 hide"边际收益接近 0
+
+**教训**:
+- cp.async 双 buffer 对**大 M GEMM** 有显著收益(M=128+ 时 compute 时间足够 hide HBM)
+- m=1 GEMV 是 **compute-light + launch-bound**,cp.async 收益为负
+- 真正的下一步是 Phase 3.3 persistent kernel(消 launch overhead),不是 cp.async 优化
+
+代码 + 调研:`/mnt/workspace/ISA/src/sglang_kernel_v10/csrc/gemv_int8_async_v2.cu`。
+实测 bench:`/mnt/workspace/ISA/experiments/004_cp_async_gemv/`。
+mirror 已同步到 PPU `gemv_optimization/sglang_kernel_v10/csrc/`,留作未来
+如果进入更复杂 GEMM fused kernel 时的起点。
+
+### 4.8 环境变量总表
 
 ### 比赛提交件 (R6 / R8) 必设
 
@@ -395,7 +434,7 @@ deep_gemm_wrapper.gemv_nt_i8i8bf16((A, As), (B, Bs), C)
 | `--enable-piecewise-cuda-graph` | PiCG 开 | VLM 工作负载下自动 disable |
 | `--enforce-piecewise-cuda-graph` | 强开 PiCG | scheduler 死(capture stream assert)|
 
-## 4.8 修改文件清单 (更新用)
+## 4.9 修改文件清单 (更新用)
 
 R6 / R8 路径依赖下面这些文件改动(全部纯 Python 覆盖):
 

@@ -259,3 +259,39 @@ if self.get_model_config().is_multimodal:
 | `--enable-piecewise-cuda-graph` → PiCG on | **PiCG off** (multimodal 自动 disable) |
 | `SGLANG_EXTRA_ARGS=--mm-attention-backend fa3` → fa3 attention | **fa3 attention** (这条**没**被覆盖,正常生效) |
 | `SGLANG_VIT_ENABLE_CUDA_GRAPH=1` → ViT CG capture | **ViT CG ON** (前提是 patch F 已装) |
+
+---
+
+## 1.12 ISA v10 GEMV — opt-in 集成 (2026-08-23 新增)
+
+> GEMV 微优化 kernel,opt-in 集成,**不修改默认配置**。详见
+> `04_OPTIMIZATIONS.md §4.7` + `技术方案报告_完整版.md §4.4 / §5.5 / §13.3`。
+
+**部署**:
+
+```bash
+cd /mnt/workspace/PPU/gemv_optimization/sglang_kernel_v10
+bash install_v10.sh
+```
+
+**启用**:
+
+```bash
+export SGLANG_ISA_V10_ENABLE=1   # opt-in, 不设即关
+```
+
+**降级路径**(任一条件 → 自动 fallback 到 deep_gemm):
+- `K != 2048`
+- `M > 8`
+- 任何 C++ 抛异常(静默 except,不影响请求)
+
+**集成位置**(对比 `quantization/w8a8_int8.py` patch):
+- `import sglang_kernel_v10` — at module load, Python import 触发
+- `_isa_v10_get_w_nk(B)` cache — by `B.data_ptr()`, 永久, 16MB memcpy 每层一次
+- v10 失败时静默 fallback 到 `deep_gemm_wrapper.gemv_nt_i8i8bf16`, 不污染请求路径
+
+**注意事项**:
+- v10 不支持 M > 8 / K != 2048,这些 shape 必须 fallback
+- v10 kernel 仅在 `K=2048` 路径上正确(其他 K 在 wrapper 层就被 `TORCH_CHECK` 拒绝)
+- 默认 `_ISA_V10_ENABLE=False`,启用了也别忘了**先跑 `install_v10.sh`**(确保 wheel 已装)
+

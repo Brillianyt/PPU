@@ -314,3 +314,50 @@ sed -i 's/^_ISA_V10_ENABLE = True/_ISA_V10_ENABLE = False/' \
 # 完全卸载 wheel
 pip uninstall sglang_kernel_v10
 ```
+
+---
+
+## 7. 2026-08-23 最终汇报 (Session Summary)
+
+### 7.1 本次会话做了什么
+
+| 阶段 | 产出 |
+|---|---|
+| Phase 0 | 调研 HGGC PDF → `ISA/docs/03_HARDWARE.md` + `ISA/notes/HGGC_PPU001_NOTES.md` |
+| Phase 1 | GEMV profile → deep_gemm 32μs / 4.5% HBM 利用率 (`ISA/docs/01_PROFILE.md`) |
+| Phase 2 | PDK 架构设计 (`ISA/docs/02_ARCHITECTURE.md`) |
+| Phase 3.0 | naive SIMD baseline = 26.78μs vs deep_gemm 31.73μs |
+| Phase 3.1 | HGGC mma 路径 — **否决**(`03_FAILED.md` F9,deep_gemm 自己不用 mma for m=1) |
+| Phase 3.2 | v10 HBM-direct kernel = 6.7μs vs deep_gemm 30.3μs = **4.5×** microbench |
+| Phase 3.2.1 | cp.async 双 buffer — **未跑赢 v10**(微 bench +9%,shmem bank conflicts) |
+| 集成 v0 | JIT hack — 反例(坏做法) |
+| 集成 v1 | 独立 wheel (`sglang_kernel_v10/`) + dispatcher patch — **正解** |
+| 修 bug | F10 dispatcher `.t().contiguous()` reverse-transpose → `.contiguous()` 修好 |
+| 端到端 | 100 样本 Ablation A vs v10,公式评分分析 |
+
+### 7.2 数字一览 (mmbench_dev_en 100, 2026-08-23, 当前 wrapper 配置)
+
+| 方案 | TPS | TTFT | acc | 评分(40/30/30) |
+|---|---|---|---|---|
+| baseline (deep_gemm, 无 v10) | 411.6 | 72.7 | 0.73 | **SSOT 提交件** |
+| + ISA v10 (opt-in) | 421.1 | 75.3 | 0.73 | +0.4% (基本持平) |
+
+### 7.3 决策记录
+
+| 决策 | 结论 | 文档位置 |
+|---|---|---|
+| **v10 默认配置** | **off**,opt-in(`SGLANG_ISA_V10_ENABLE=1` 启用) | `README.md` + `02_RESULTS.md` §2.1 |
+| HGGC mma 路径 | 跳过,深_gemm 也不用 | `03_FAILED.md` F9 |
+| v10 kernel 形态 | HBM-direct SIMT(无 cp.async, 无 mma) | `04_OPTIMIZATIONS.md` §4.6 |
+| 集成模式 | 独立 wheel(`pip install .`),非 JIT hack | `04_OPTIMIZATIONS.md` §4.6.3 |
+| `_ISA_V10_W_CACHE` | 永久 cache,key = `B.data_ptr()`,每层 16MB 一次性 contiguous | `05_INTEGRATION.md`(ISA 仓) |
+| R6/R8 历史 baseline | **不可复现**,作废;新 SSOT = 2026-08-23 实测 | `02_RESULTS.md` §2.1 |
+| Phase 3.3 persistent kernel | **待做**(预期 +20-60% TPS),当前最高优 | `notes/TODO.md`(ISA) |
+
+### 7.4 待办 (Phase 3.3 优先级)
+
+1. **Persistent kernel**: 1 launch 串起 200+ GEMV,消 launch overhead。预期 TPS 500-700
+2. **Per-row As 多 token 支持**: 当前只 M=1,M>1 走 fallback
+3. **多 K 模板**: 当前只 K=2048,K=6144 走 fallback
+4. **TTFT 回归根因**: 3.6% 是 first-request 噪音还是 v10 真拖慢? Phase 3.3 一并分析
+
