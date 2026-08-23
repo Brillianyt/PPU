@@ -26,7 +26,7 @@ PPU/
 │   │   │   ├── environ.py
 │   │   │   ├── layers/
 │   │   │   │   ├── deep_gemm_wrapper/{compile_utils,entrypoint}.py
-│   │   │   │   └── quantization/w8a8_int8.py          ← [G 类] w8a8_int8 加 _nm siblings
+│   │   │   │   └── quantization/w8a8_int8.py          ← [G 类] w8a8_int8 加 v10 ISA fast path
 │   │   │   ├── models/{qwen3_vl.py, qwen3_5.py, ...}
 │   │   │   ├── speculative/eagle_worker_v2.py
 │   │   │   ├── hardware_backend/ppu/attention/ppu_fa3_hooks.py
@@ -39,6 +39,11 @@ PPU/
 │   └── DeepGEMM-for-sail/deep_gemm/
 │       ├── __init__.py
 │       └── jit_kernels/{__init__.py, gemv_int8.py}
+
+# ↑ v10 kernel 不在这里 ↑ — 它在独立的 Python package:
+#   /mnt/workspace/ISA/src/sglang_kernel_v10/
+# 通过 `pip install .` 安装成独立 wheel,sglang 不再 JIT load。
+# 镜像源里不再有 gemv_int8_async.{cu,cpp},2026-08-23 删除。
 │
 └── inductor_hook_PPU/              # RoPE hook(不在 gemv_optimization/,独立 module)
     └── hook/ppu_rotary_hooks.py
@@ -249,3 +254,63 @@ site-packages 上的 `__pycache__/*.pyc` 可能让 `diff` 报噪音。部署前�
 - 把镜像源当成 git patch,接受随版本漂移
 
 本次 R8 复现依赖 `sglang==0.5.13+v0.1.0.ppu2.1.1`,其它版本未测试。
+
+---
+
+## 6. 2026-08-23 sync round: v10 prebuilt integration + layout bug fix
+
+**改动:** 把 v10 INT8 GEMV fast path 从 `torch.utils.cpp_extension.load`
+(JIT 编译,每次冷启动延迟 + 破坏 CUDA graph capture)改成正经 wheel:
+`/mnt/workspace/ISA/src/sglang_kernel_v10/`,`pip install .` 装成独立 Python
+package。同时修了 dispatcher 的 layout bug(`_isa_v10_get_w_nk` 之前做错了
+`.t().contiguous()`,应该是 `.contiguous()`)。
+
+**端到端验证:**
+
+| 配置 | TPS | acc |
+|---|---|---|
+| baseline (no v10) | 411.6 | 0.73 |
+| v10 with bug | 353.0 (-14%) | 0.70 |
+| **v10 fixed** | **421.1 (+2.3%)** | **0.73** |
+
+**这次同步做了什么:**
+1. ✅ `sglang_kernel_v10/` wheel 安装到 site-packages(独立 package,不污染 sglang)
+2. ✅ `w8a8_int8.py` 镜像源 = 当前部署版 (含 `_ISA_V10_ENABLE` / `_ISA_V10_W_CACHE` / `_isa_v10_get_w_nk` / `_isa_load_fast_path` 移除)
+3. ✅ 删除镜像源里的过时 JIT artifact: `gemv_int8_async.{cu,cpp}` 和 `sglang/sglang_kernel_v10/` 旧 stub
+4. ✅ `docs/05_INTEGRATION.md`(ISA 仓)记录 dispatcher 集成 + layout bug + cache invariants + CG 安全性
+5. ✅ `docs/08_SYNC.md`(本节)记录这次 sync 的来源和 diff 范围
+
+**安装步骤:**
+```bash
+# 一次性:装 v10 wheel
+cd /mnt/workspace/ISA/src/sglang_kernel_v10 && pip install .
+
+# 一次性:deploy sglang dispatcher patch
+cp -v /mnt/workspace/PPU/gemv_optimization/sglang-for-sail/python/sglang/srt/layers/quantization/w8a8_int8.py \
+      /usr/local/lib/python3.12/site-packages/sglang/srt/layers/quantization/w8a8_int8.py
+
+# 验证
+python3 -c "
+import torch
+from sglang_kernel_v10 import gemv_int8_async
+from sglang.srt.layers.quantization.w8a8_int8 import gemv_int8_i8i8bf16, _ISA_V10_ENABLE
+print('v10 enabled:', _ISA_V10_ENABLE)
+A = torch.randint(-128, 127, (1, 2048), dtype=torch.int8, device='cuda')
+W = torch.randint(-128, 127, (2048, 8192), dtype=torch.int8, device='cuda')  # (K, N)
+As = torch.ones(1, dtype=torch.float32, device='cuda')
+Bs = torch.ones(8192, dtype=torch.float32, device='cuda')
+out = torch.empty(1, 8192, dtype=torch.bfloat16, device='cuda')
+gemv_int8_i8i8bf16(A, As, W, Bs, out)
+ref = (A.float() @ W.float()).to(torch.bfloat16)
+print('max diff:', (out.float() - ref.float()).abs().max().item())  # expect 0.0
+"
+```
+
+**回滚:**
+```bash
+# 关掉 v10 fast path (回 baseline)
+sed -i 's/^_ISA_V10_ENABLE = True/_ISA_V10_ENABLE = False/' \
+    /usr/local/lib/python3.12/site-packages/sglang/srt/layers/quantization/w8a8_int8.py
+# 完全卸载 wheel
+pip uninstall sglang_kernel_v10
+```

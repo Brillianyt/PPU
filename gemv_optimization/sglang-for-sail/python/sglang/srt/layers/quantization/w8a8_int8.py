@@ -10,6 +10,61 @@ from torch.nn.parameter import Parameter
 from sglang.srt.distributed import get_tensor_model_parallel_world_size
 from sglang.srt.environ import envs
 from sglang.srt.layers import deep_gemm_wrapper
+
+# ISA Phase 3.2 fast path (K=2048, M<=8):
+# Imports the prebuilt sglang_kernel_v10 wheel (.so built at install time,
+# not JIT-loaded at first call). This is the proper integration pattern —
+# see /mnt/workspace/ISA/src/sglang_kernel_v10/README.md.
+#
+# Why not torch.utils.cpp_extension.load: it triggers a compile on first
+# call, which both adds TTFT latency AND breaks CUDA graph capture (the
+# capture happens on the very first forward pass, while JIT is still
+# compiling). The prebuilt .so is loaded into the module table at import
+# time, before any forward / capture.
+try:
+    import sglang_kernel_v10 as _isa_v10
+    _ISA_V10_AVAILABLE = True
+except ImportError:
+    _isa_v10 = None
+    _ISA_V10_AVAILABLE = False
+
+# ABLATION A: temporarily disable v10 fast path to isolate regression source.
+# Set to True to enable the v10 GEMV fast path; False to fall through to deep_gemm.
+_ISA_V10_ENABLE = True
+
+# Per-data_ptr cache of (N, K) row-major weight buffers for the v10 fast path.
+#
+# IMPORTANT — layout convention (was wrong in initial integration, model
+# produced garbage):
+#   sglang stores layer.weight as (K, N) row-major (transposed at
+#   process_weights_after_loading). Then apply() calls
+#       gemv_int8_i8i8bf16(x_q, x_scale, layer.weight.t(), ...)
+#   so the dispatcher receives B = layer.weight.t() which has SHAPE (N, K)
+#   but COLUMN-MAJOR strides (the underlying memory is still (K, N)
+#   row-major). Our kernel reads W as (N, K) row-major for coalesced access.
+#   So we cache B.contiguous() (which copies the (N, K) view into row-major).
+#   DO NOT call B.t().contiguous() — that gives (K, N) row-major, which the
+#   kernel would read as if it were (N, K) → garbage output.
+_ISA_V10_W_CACHE: dict[int, torch.Tensor] = {}
+
+
+def _isa_v10_get_w_nk(B: torch.Tensor) -> torch.Tensor:
+    """Return a (N, K) row-major copy of an (N, K)-shape, column-major view.
+
+    B is `layer.weight.t()` — shape (N, K), strides (1, K). The kernel
+    needs (N, K) row-major. We cache the contiguous() copy keyed by
+    B.data_ptr() (which equals layer.weight.data_ptr() since .t() doesn't
+    reallocate), so the copy happens ONCE per layer.
+    """
+    # layer.weight.data_ptr() == B.data_ptr() because .t() is a view, not a copy.
+    # Cache on that so we don't keep a separate map.
+    key = B.data_ptr()
+    cached = _ISA_V10_W_CACHE.get(key)
+    if cached is not None:
+        return cached
+    cached = B.contiguous()  # (N, K) row-major — what the kernel wants
+    _ISA_V10_W_CACHE[key] = cached
+    return cached
 from sglang.srt.layers.amx_utils import (
     CPUQuantMethod,
     _amx_process_weight_after_loading,
@@ -116,6 +171,22 @@ def gemv_int8_i8i8bf16(
     Bs: torch.Tensor,
     C: torch.Tensor,
 ) -> None:
+    # ISA fast path: K=2048, M<=8 → our v10 kernel (3-4.5× vs deep_gemm).
+    # The fast-path kernel is a prebuilt .so (sglang_kernel_v10 wheel),
+    # NOT JIT-loaded — so it can be safely used inside CUDA graph capture.
+    #
+    # B is in sglang's native (K, N) row-major layout (because layer.weight
+    # is transposed at process_weights_after_loading). Our kernel wants
+    # (N, K) row-major for coalesced access. We cache the transposed buffer
+    # by B.data_ptr() so the (16MB for hidden=2048) memcpy happens ONCE per
+    # layer, not on every decode step.
+    if _ISA_V10_ENABLE and _ISA_V10_AVAILABLE and A.shape[1] == 2048 and A.shape[0] <= 8:
+        try:
+            W_nk = _isa_v10_get_w_nk(B)  # B is (K, N); we return (N, K)
+            _isa_v10.gemv_int8_async(A, W_nk, As, Bs, C)
+            return
+        except Exception:
+            pass  # fall back to deep_gemm if fast path fails
     deep_gemm_wrapper.gemv_nt_i8i8bf16((A, As), (B, Bs), C)
 
 

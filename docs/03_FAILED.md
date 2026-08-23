@@ -101,7 +101,83 @@ AssertionError
 **结论**: **MIXED 暂时不上竞赛**。需等 sglang-for-SAIL v0.5.13+ 的 MXFP4 支持(本仓
 已升级 0.5.13,但实测 MIXED 配置仍与 sglang quant registry 不兼容)。
 
-更详细的 sglang 0.5.10 量化方案清单见 `../INT8_strategy.md` §5。
+更详细的 sglang 0.5.10 量化方案清单见 `../INT8_strategy.md` §5`。
+
+## F9. HGGC mma 路径 for INT8 GEMV — **架构决策(放弃,不是失败)**
+
+> 实验目录:`/mnt/workspace/ISA/src/kernels/gemv_int8_hggc.cu`(已弃)
+> 调研笔记:`/mnt/workspace/ISA/notes/HGGC_PPU001_NOTES.md` 12 章
+
+**背景**: 看过 HGGC 编程指南 245 页,INT8 mma `m16n16k16` / `m8n32k16` / `m32n8k16`
+看起来是优化 INT8 GEMV 的标准武器;用 SAIL `awmma::fragment` 直接走张量核,理论上
+比 SIMT 快 ~8×。
+
+**尝试**: 写 `gemv_int8_hggc.cu` 用 `awmma::fragment<matrix_a, 16, 16, 16, int8_t, row_major>`
++ `awmma::fragment<matrix_b, 16, 16, 16, int8_t, col_major>` + `awmma::mma_sync(...)`。
+模板化 K=2048 → 128 个 mma step。
+
+**两次崩溃**:
+1. **编译期**: `awmma` 头文件 + `<torch/extension.h>` + nvcc 13 + g++ 13 cmath
+   constexpr 冲突(`isgreaterequal` / `isinf` / `isnan` 都被 HGGC 重定义为 `__device__ constexpr`),
+   触发 "subexpression not valid in a constant expression" 20+ 错误。
+2. **运行期**: 即便把 HGGC 头文件从 torch include path 隔离出来,`awmma::fragment`
+   构造时若拿到的 row_major 数据 layout 不严格 256-bit 对齐就 segfault。
+
+**关键决策(2026-08-23 决定放弃 mma 路线)**:
+
+| 证据 | 含义 |
+|---|---|
+| deep_gemm 自己不用 mma 跑 m=1 GEMV(`gemvt.cuh` 是 SIMT + 4×int4 向量化 + cp.async 多 stage) | 业界经验:m=1 GEMV 走 mma 浪费 15/16 计算(M 维 16 但只用 1) |
+| Phase 3.0 naive(SIMD-only)microbench 26.78μs 已经和 deep_gemm 31.73μs 持平 | mma 不是 GEMV 瓶颈 |
+| microbench 显示 HBM 有效带宽只到 peak 4.5% | 瓶颈是 HBM latency 和 launch overhead,不是算力 |
+
+**结论**: 跳过 HGGC mma 路径,直接走 **HBM-direct SIMT**(Phase 3.2 v10)。
+v10 = 6.7 μs vs deep_gemm 30.3 μs = 4.5×,**比预期的 mma 加速还多**(因为不用
+mma 后 layout 更简单,lane 间 coalesce 完美)。
+
+**教训(写进 AGENTS.md)**: PPU kernel 任务"用 HGGC 不用 NVIDIA"指的是**PTX 指令层**(
+用 `ppu.cp.async.*` 不用 `cp.async.*`,用 `awmma` 不用 `wmma`),**不是"必须用 mma"**。
+m=1 GEMV 是反 mma 的任务,要按 deep_gemm 自己的做法走 SIMT。
+
+## F10. v10 dispatcher layout bug — **dispatcher 第一版的 reverse-transpose**
+
+**症状**: 启用 v10 fast path 后模型输出 garbage (e.g. `"Fated/Uglanyation/MaxFulFeyndropPolly"`),
+TPS 411.6 → 353.0 (-14%),acc 0.73 → 0.70。
+
+**根因**: sglang `apply()` 调用 `gemv_int8_i8i8bf16(x_q, x_scale, layer.weight.t(), ...)`。
+`layer.weight` 存为 `(K, N)` row-major(在 `process_weights_after_loading` 里
+`.t()` 转置过)。所以 `layer.weight.t()` 给我们 shape `(N, K)` 但 strides `(1, K)` —
+**column-major 的 (N, K) view**。
+
+v10 第一个版本的 dispatcher 写了:
+```python
+def _isa_v10_get_w_nk(W_kn):
+    return W_kn.t().contiguous()  # ← BUG: 实际 B 已经是 (N, K) shape 了!
+```
+`.t().contiguous()` 又做了一次 reverse,把 `(N, K)` view 变回 `(K, N)` row-major。
+kernel 拿到错的 shape,`TORCH_CHECK(W.size(1) == K, ...)` 抛 "K mismatch" →
+exception caught → 静默 fallback 到 deep_gemm → deep_gemm 又因为 B 非 contiguous
+assert 失败 → 输出 buffer 残留上次 decode 的值 → 模型 garbage。
+
+**修复**:
+```python
+def _isa_v10_get_w_nk(B):
+    cached = B.contiguous()  # ← 正确: 直接 contiguous,不要 .t()
+    _ISA_V10_W_CACHE[B.data_ptr()] = cached
+    return cached
+```
+
+**端到端验证**:
+| 配置 | TPS | acc |
+|---|---|---|
+| baseline | 411.6 | 0.73 |
+| v10 bug | 353.0 | 0.70 |
+| **v10 fixed** | **421.1** | **0.73** |
+
+**教训**: kernel .cu / wrapper .cpp 验证 correctness 不够,dispatcher 的 layout
+转换是另一层容易出错的地方。集成时必须有 end-to-end 测试,不能只 unit test。
+
+完整 dispatch + cache + CUDA-graph 安全性分析见 `ISA/docs/05_INTEGRATION.md`。
 
 ## F8. qlean ignore 列表 vs sglang fused layers 不兼容 — **0% acc 根因**
 

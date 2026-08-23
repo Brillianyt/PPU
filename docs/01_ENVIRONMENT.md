@@ -10,10 +10,35 @@
 |---|---|
 | 机器 | 1× PPU-ZW810E (真武 810E, T-Head) |
 | HBM | 96 GB |
-| HBM 带宽 | ~1 TB/s (从 GEMV kernel 时长反推) |
+| HBM 带宽 | **~2.7 TB/s peak** (1.8 GHz × 6144-bit × 2 DDR / 8);实测可达 ~1 TB/s on typical GEMV |
 | 计算 ABI | CUDA 兼容层(sgl_kernel / flash_attn_interface / DeepGEMM 等都跑通) |
 | profiler | `asys` v2.1.1 (`/usr/local/PPU_SDK/asight/bin/asys`) |
 | 关键驱动力 | `SGLANG_SAIL_USE_ACEXT_CUDA` 接入 PPU `sgl_kernel.int8_gemm`,见 §1.11 |
+
+### 1.1a PPU001 详细硬件参数(从 `torch.cuda.get_device_properties(0)` + SDK 头文件)
+
+| 参数 | 值 | 备注 |
+|---|---|---|
+| 设备名 | PPU-ZW810E | T-Head 自研 |
+| **compute capability** | **8.0** | 跟 NVIDIA A100 同一代,**但带 SAIL 自有 ISA 扩展** |
+| **SM 数** | **64** | 比 A100 少(108),决定 persistent worker pool 大小 |
+| warp size | 32 | 跟 NVIDIA 一致 |
+| regs/SM | 131,072 (128 KB) | 每个 thread ≤ 256 registers |
+| **shared memory/SM** | **256 KB**(2 组 × 128 B/cycle) | 较大 — 适合 weight tile 缓存。**注意双 buffer 必须 128B 步长对齐** |
+| shared memory/block | 256 KB | 单 block 可全占 shmem |
+| max threads/SM | 2048 | = 8 blocks × 256 threads |
+| **L2 cache** | **64 MB** | 很大 — 跨请求 weight 复用机会大 |
+| memory clock | 1.8 GHz | GDDR6X 等级 |
+| memory bus | 6144-bit | 6×1024-bit channel |
+| 编译器 | gcc 13.3.0 + nvcc 13.0.0 | 注意 g++ 13 `cmath` constexpr vs HGGC `__device__ isinf/isnan` 冲突,见 `03_FAILED.md` F9 |
+
+**SAIL ISA 扩展(PPU001 独有,需用 HGGC SDK 头文件):**
+- `ppu.cp.async.cg.shared.global [%0], [%1], 16` — 异步 global→shared 拷贝(替代 NVIDIA `cp.async`)
+- `ppu.cp.async.commit_group` / `ppu.cp.async.wait_group N` — 异步组管理
+- `awmma::fragment<...>` — 公开 mma API(signed char, row_major / col_major)
+- `ppu.tc01.mma.sync.aligned.m16n16k16` — Tensor Cell mma(PPU0015 不支持)
+
+来源:`/mnt/workspace/ISA/docs/03_HARDWARE.md` + `/mnt/workspace/ISA/notes/HGGC_PPU001_NOTES.md`(12 章, 10KB,从 HGGC 编程指南 245 页 + 示例 68 页提取)。
 
 ## 1.2 镜像与软件版本
 

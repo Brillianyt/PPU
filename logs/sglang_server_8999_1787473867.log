@@ -1,0 +1,89 @@
+/usr/local/lib/python3.12/site-packages/requests/__init__.py:113: RequestsDependencyWarning: urllib3 (1.26.16) or chardet (6.0.0.post1)/charset_normalizer (2.0.12) doesn't match a supported version!
+  warnings.warn(
+/usr/local/lib/python3.12/site-packages/sglang/launch_server.py:54: UserWarning: 'python -m sglang.launch_server' is still supported, but 'sglang serve' is the recommended entrypoint.
+  Example: sglang serve --model-path <model> [options]
+  warnings.warn(
+[2026-08-23 16:31:15] INFO hook_registry.py:308: Applied 1 hook(s) to sgl_kernel.flash_mla.flash_mla_sparse_fwd (from: unknown)
+[2026-08-23 16:31:15] INFO hook_registry.py:308: Applied 1 hook(s) to sgl_kernel.flash_mla.flash_mla_with_kvcache (from: unknown)
+[2026-08-23 16:31:16] INFO hook_registry.py:308: Applied 1 hook(s) to sgl_kernel.flash_mla.get_mla_metadata (from: unknown)
+[2026-08-23 16:31:17] INFO logging.py:355: On PPU, for the DeepSeek architecture, we should disable piecewise-cuda-graph.
+Because if it is enabled, the `qv` received by the PPU FA3 interface will not be `None`. However, the PPU FA3 interface does not support this case.
+<SAIL>: skipping dsa indexer optimization, fallback to original path
+[2026-08-23 16:31:18] INFO hook_registry.py:308: Applied 1 hook(s) to sglang.srt.layers.attention.dsa_backend.DSAFlashMLAMetadata.copy_ (from: unknown)
+[2026-08-23 16:31:18] INFO hook_registry.py:308: Applied 1 hook(s) to sglang.srt.layers.attention.dsa_backend.DSAFlashMLAMetadata.slice (from: unknown)
+[2026-08-23 16:31:18] INFO hook_registry.py:308: Applied 1 hook(s) to sglang.srt.layers.attention.dsa_backend.DeepseekSparseAttnBackend.init_forward_metadata_in_graph (from: unknown)
+[2026-08-23 16:31:18] INFO hook_registry.py:308: Applied 1 hook(s) to sglang.srt.layers.attention.dsa_backend.DeepseekSparseAttnBackend.init_forward_metadata_replay_cuda_graph_from_precomputed (from: unknown)
+[2026-08-23 16:31:18] INFO hook_registry.py:308: Applied 1 hook(s) to sglang.srt.layers.attention.flashattention_backend.FlashAttentionBackend.__init__ (from: unknown)
+[2026-08-23 16:31:18] INFO hook_registry.py:308: Applied 1 hook(s) to sglang.srt.layers.attention.flashattention_backend.flash_attn_varlen_func (from: unknown)
+[2026-08-23 16:31:18] INFO hook_registry.py:308: Applied 1 hook(s) to sglang.srt.layers.attention.flashattention_backend.flash_attn_with_kvcache (from: unknown)
+[2026-08-23 16:31:18] INFO hook_registry.py:308: Applied 1 hook(s) to sglang.srt.layers.attention.flashmla_backend.FlashMLABackend._apply_decode_target_verify_metadata (from: unknown)
+[2026-08-23 16:31:18] INFO hook_registry.py:308: Applied 1 hook(s) to sglang.srt.layers.attention.flashmla_backend.FlashMLABackend.init_cuda_graph_state (from: unknown)
+[2026-08-23 16:31:18] INFO hook_registry.py:308: Applied 1 hook(s) to sglang.srt.layers.attention.flashmla_backend.FlashMLABackend.init_forward_metadata (from: unknown)
+[2026-08-23 16:31:18] INFO hook_registry.py:308: Applied 1 hook(s) to sglang.srt.layers.attention.flashmla_backend.FlashMLABackend.init_forward_metadata_in_graph (from: unknown)
+[2026-08-23 16:31:18] INFO hook_registry.py:308: Applied 1 hook(s) to sglang.srt.layers.attention.flashmla_backend.FlashMLABackend.init_forward_metadata_out_graph (from: unknown)
+[2026-08-23 16:31:18] INFO hook_registry.py:308: Applied 1 hook(s) to sglang.srt.layers.attention.vision.flash_attn_varlen_func (from: unknown)
+[2026-08-23 16:31:18] INFO hook_registry.py:308: Applied 1 hook(s) to sglang.srt.layers.rotary_embedding.utils.apply_rotary_pos_emb (from: unknown)
+[2026-08-23 16:31:18] WARNING argparse_actions.py:29: [1;33mThe command line argument '--enable-piecewise-cuda-graph' is deprecated and will be removed in future versions.[0m
+[2026-08-23 16:31:18] Disable custom allreduce and use pccl allreduce on ppu for better perf. Launch server with --enable-custom-all-reduce to force use custom allreduce
+Traceback (most recent call last):
+  File "/usr/local/lib/python3.12/site-packages/transformers/utils/hub.py", line 422, in cached_files
+    hf_hub_download(
+  File "/usr/local/lib/python3.12/site-packages/huggingface_hub/utils/_validators.py", line 84, in _inner_fn
+    validate_repo_id(arg_value)
+  File "/usr/local/lib/python3.12/site-packages/huggingface_hub/utils/_validators.py", line 138, in validate_repo_id
+    raise HFValidationError(
+huggingface_hub.errors.HFValidationError: Repo id must use alphanumeric chars, '-', '_' or '.'. The name cannot start or end with '-' or '.' and the maximum length is 96: './Qwen3.5-2B'.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/usr/local/lib/python3.12/site-packages/sglang/launch_server.py", line 66, in <module>
+    server_args = prepare_server_args(sys.argv[1:])
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/sglang/srt/server_args.py", line 8121, in prepare_server_args
+    return ServerArgs.from_cli_args(raw_args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/sglang/srt/server_args.py", line 7396, in from_cli_args
+    return cls(**{attr: getattr(args, attr) for attr in attrs})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 401, in __init__
+  File "/usr/local/lib/python3.12/site-packages/sglang/srt/server_args.py", line 956, in __post_init__
+    self._handle_ppu_backends()
+  File "/usr/local/lib/python3.12/site-packages/sglang/srt/server_args.py", line 1376, in _handle_ppu_backends
+    hf_config = self.get_model_config().hf_config
+                ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/sglang/srt/server_args.py", line 7446, in get_model_config
+    self.model_config = ModelConfig.from_server_args(self)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/sglang/srt/configs/model_config.py", line 413, in from_server_args
+    return ModelConfig(
+           ^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/sglang/srt/configs/model_config.py", line 225, in __init__
+    self.hf_config = get_config(
+                     ^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/sglang/srt/utils/common.py", line 3513, in wrapper
+    result = func(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/sglang/srt/utils/hf_transformers/config.py", line 249, in get_config
+    config = parser.parse(
+             ^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/sglang/srt/utils/hf_transformers/config.py", line 63, in parse
+    config = AutoConfig.from_pretrained(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/transformers/models/auto/configuration_auto.py", line 374, in from_pretrained
+    config_dict, unused_kwargs = PreTrainedConfig.get_config_dict(pretrained_model_name_or_path, **kwargs)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/transformers/configuration_utils.py", line 682, in get_config_dict
+    config_dict, kwargs = cls._get_config_dict(pretrained_model_name_or_path, **kwargs)
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/transformers/configuration_utils.py", line 737, in _get_config_dict
+    resolved_config_file = cached_file(
+                           ^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/transformers/utils/hub.py", line 278, in cached_file
+    file = cached_files(path_or_repo_id=path_or_repo_id, filenames=[filename], **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/site-packages/transformers/utils/hub.py", line 473, in cached_files
+    raise OSError(f"{e}") from e
+OSError: Repo id must use alphanumeric chars, '-', '_' or '.'. The name cannot start or end with '-' or '.' and the maximum length is 96: './Qwen3.5-2B'.

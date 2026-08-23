@@ -290,7 +290,83 @@ PPU fork 的 `_handle_ppu_backends()` (server_args.py:1349-1355) 会强制设
 
 历史决策脉络见 `../conversations/KEY_DECISIONS.md`(决策 §38: ACEXT vs GEMV in CG)。
 
-## 4.7 环境变量总表
+## 4.6 ISA v10 INT8 GEMV prebuilt kernel (Phase 3.2)
+
+> **TL;DR** — `/mnt/workspace/ISA/src/sglang_kernel_v10/` 是独立 Python wheel
+> (`pip install .` 装),里面 `gemv_int8_async.cu` 跑 K=2048 M=1 INT8 GEMV,比
+> deep_gemm 快 **3-4.5×**。端到端在 100 样本上 TPS **411.6 → 421.1 (+2.3%)**,
+> acc **0.73**(= baseline,无精度损失)。
+
+### 4.6.1 思路
+
+deep_gemm 的 `gemvt.cuh` 在 M=1 decode 上只到 HBM peak 的 4.5%,HBM 实际读 ~1.5μs,
+剩 ~23μs 全是空转。v10 把每个 lane 的访问模式调成"在 (N, K) row-major W 上 64
+字节连续"(`NUM_UNROLL=4 × int4 stride 16`),32 lane 覆盖 2 KB 完美 coalesce,
+无 shmem 中转,直接 HBM → register → warp reduce → 写出。
+
+### 4.6.2 microbench(K=2048 N=2048 M=1,1000 iters)
+
+| kernel | 时延 | 有效带宽 | HBM peak 占比 |
+|---|---|---|---|
+| deep_gemm (production) | 30.32 μs | 138 GB/s | 5.0% |
+| naive SIMD (Phase 3.0) | 26.72 μs | 157 GB/s | 5.7% |
+| **v10 (HBM direct)** | **6.70 μs** | **625 GB/s** | **22.6%** |
+
+来源:`ISA/experiments/004_cp_async_gemv/`。比 deep_gemm 快 4.5×,比 naive SIMD 快 4.0×。
+**生产 shape N=8192** 实测 10.21 μs vs deep_gemm 32.08 μs = **3.13×**。
+
+### 4.6.3 集成模式(从 JIT hack → 独立 wheel)
+
+v10 不是把 .cu 文件塞进 sglang 目录 JIT 编译(`torch.utils.cpp_extension.load`),
+而是正经 Python package:
+
+```
+ISA/src/sglang_kernel_v10/
+├── csrc/{gemv_int8_async.cu, gemv_int8_async_wrapper.cpp, binding.h}
+├── sglang_kernel_v10/__init__.py   # from ._C import gemv_int8_async
+└── setup.py                        # CUDAExtension("sglang_kernel_v10._C", ...)
+```
+
+`pip install .` → `site-packages/sglang_kernel_v10/_C.cpython-312-*.so` →
+`import sglang_kernel_v10 as _isa_v10`(Python 第一次 import 即加载,不在
+CUDA graph capture 期间编译)。
+
+sglang 那边只动 `w8a8_int8.py` 的 dispatcher:
+
+```python
+if _ISA_V10_ENABLE and A.shape[1] == 2048 and A.shape[0] <= 8:
+    W_nk = _isa_v10_get_w_nk(B)  # B = layer.weight.t() → (N, K) row-major, cached
+    _isa_v10.gemv_int8_async(A, W_nk, As, Bs, C)
+    return
+deep_gemm_wrapper.gemv_nt_i8i8bf16((A, As), (B, Bs), C)
+```
+
+`_isa_v10_get_w_nk` 把 sglang 的 (N, K)-shape column-major view `B.contiguous()`
+成 (N, K) row-major,**按 data_ptr() 缓存**,16MB memcpy 每层只一次。详见
+[`08_SYNC.md`](08_SYNC.md) §6 + `ISA/docs/05_INTEGRATION.md`。
+
+### 4.6.4 端到端结果(100 样本 mmbench_dev_en,同 wrapper 路径)
+
+| 配置 | TPS | TTFT median | acc | 备注 |
+|---|---|---|---|---|
+| baseline (无 v10) | 411.6 | 72.7 | 0.73 | — |
+| v10 + dispatcher bug(早期) | 353.0 | 76.2 | 0.70 | `_isa_v10_get_w_nk` 错把 `.t().contiguous()` 当成 (N,K) — 模型 garbage |
+| **v10 fixed** | **421.1** | 75.3 | **0.73** | 修 cache 后正常 |
+
+加速比仅 +2.3%(不是 microbench 的 4.5×),因为 decode GEMV 在端到端 decode 时间
+里不是 100%,其它耗时(prefill、attention、launch dispatch、PiCG 复用)摊薄了
+收益。**但完全无精度损失 + 与 baseline 完全兼容,值得上**。
+
+### 4.6.5 已知限制 + 下一步
+
+| 限制 | 影响 | 下一步 |
+|---|---|---|
+| 只支持 K=2048 | 大 K(6144) 走 deep_gemm fallback | 加 multi-K 模板 |
+| M=1 only | bs>1 走 deep_gemm fallback | M-aware launcher(M=1/2/4/8 unroll 选) |
+| 没 cp.async 双 buffer | HBM latency 没完全 hide | Phase 3.2.1(预计再 +20-50%) |
+| 没持久 kernel | 200+ GEMV launch | Phase 3.3 目标 500-700 tok/s |
+
+### 4.7 环境变量总表
 
 ### 比赛提交件 (R6 / R8) 必设
 
