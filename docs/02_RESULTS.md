@@ -15,23 +15,9 @@
 | 优先级 | 方案 | 模型 | attention backend | 单样本 acc (en/cn 100) | TTFT (ms) | throughput (tok/s) | patch 需求 |
 |---|---|---|---|---|---|---|---|
 | **首选 ⭐ 提交件** | **当前 baseline (2026-08-23)** | S2-aggressive INT8 | fa3 | **0.73** | **72.7** | **411.6** | 全 6 类 |
-| 探索 | + ISA v10 GEMV (opt-in) | 同上 | fa3 | 0.73 | 75.3 | 421.1 | + `pip install sglang_kernel_v10` |
 | 历史 | R6 (2026-08-21, 不可复现) | S2-aggressive INT8 | triton_attn | 0.74 / 0.82 | 63 | 429 | 全 6 类 |
 | 历史 | R8 (2026-08-21, 不可复现) | S2-aggressive INT8 | fa3 | 0.73 / — | 66 | 434 | 全 6 类 |
 | 对照基线 | G 组 bf16 | 原 BF16 (无 patch) | fa3 | 0.78 / 0.82 | 73 | 357 (500 样本) | 无 |
-
-### v10 评分分析(官方公式 `0.4 × acc + 0.3 × TTFT + 0.3 × TPS`)
-
-| 指标 | 当前 baseline | +v10 | 改善率 | 公式权重 | 净贡献 |
-|---|---|---|---|---|---|
-| acc | 0.73 | 0.73 | 0 | 0.4 | 0 |
-| TTFT (ms) | 72.7 | 75.3 | -3.6% | 0.3 | **-1.08%** |
-| TPS | 411.6 | 421.1 | +2.3% | 0.3 | +0.69% |
-| **总分** | — | — | — | — | **-0.39% (微负)** |
-
-**结论**: v10 净评分几乎为零。TTFT 回归 3.6%(可能 first-request 冷启动噪音,
-未必每轮都出现)刚好抵消 TPS 收益。**默认配置不挂 v10**,opt-in 留给私测 /
-后续 Phase 3.3 优化基础。
 
 ### 关于历史 R6/R8 数字
 
@@ -41,8 +27,7 @@ R6/R8 在"推荐方案"表中的数字 (TTFT 63/66ms, TPS 429/434) 来自 2026-0
 仅作上下文参考,**不参与本次提交决策**。
 
 数字来源:
-- 当前 baseline (en 100, 2026-08-23):`../result_repro/result_dev_en_v10_DISABLED_100.json`
-- +v10 (en 100, 2026-08-23):`../result_repro/result_dev_en_v10_FIXED_100.json`
+- 当前 baseline (en 100, 2026-08-23):实测记录见 `results_summary.md` + `README_REPRODUCE.md` §0
 - R6 / R8 (en 100, 2026-08-21):`../results_summary.md` §2 2×2 网格(已不适用)
 - G 组 (en 500):`../results_summary.md` §1.5 BF16 baseline
 - CN 0.82:`../results_summary.md` §1.5 cn 100/200 实测(历史)
@@ -129,46 +114,3 @@ markdown `**B**` + multiline,正确解析。**官方口径下 cn 真实 acc = 0.
 
 **提交前用官方脚本跑 en+cn 双数据集校验**,不要用任何旧 runner 重新计算。
 
-## 2.7 ISA v10 GEMV prebuilt kernel(Phase 3.2)
-
-> 实验目录:`/mnt/workspace/ISA/experiments/004_cp_async_gemv/`
-> 集成说明:`/mnt/workspace/ISA/docs/05_INTEGRATION.md` + [`08_SYNC.md`](08_SYNC.md) §6
-
-### 2.7.1 microbench(K=2048 N=2048 M=1,1000 iters)
-
-| kernel | 时延 | 有效带宽 | HBM peak 占比 |
-|---|---|---|---|
-| deep_gemm (production) | 30.32 μs | 138 GB/s | 5.0% |
-| naive SIMD (Phase 3.0) | 26.72 μs | 157 GB/s | 5.7% |
-| **v10 (HBM direct)** | **6.70 μs** | **625 GB/s** | **22.6%** |
-
-生产 shape K=2048 N=8192: v10 = 10.21 μs vs deep_gemm 32.08 μs = **3.13×**。
-
-correctness: max diff = 0.0 vs fp32 ref,vs deep_gemm,在 CUDA graph 内 replay 20 次全部一致。
-
-### 2.7.2 端到端 100 样本 mmbench_dev_en(同 wrapper 路径)
-
-| 配置 | TPS | TTFT median | acc |
-|---|---|---|---|
-| baseline (no v10) | 411.6 | 72.7 | 0.73 |
-| v10 + dispatcher bug | 353.0 | 76.2 | 0.70 |
-| **v10 fixed** | **421.1** | 75.3 | **0.73** |
-| Δ vs baseline | **+2.3%** | +2.6 ms | 0 |
-
-来源:`result_repro/result_dev_en_v10_DISABLED_100.json` + `result_repro/result_dev_en_v10_FIXED_100.json`。
-
-**注意:加速比仅 +2.3%(不是 4.5×)** — 因为 GEMV 在端到端 decode 时间里不是 100%。
-真实收益预测见 §2.7.3。
-
-### 2.7.3 下一步的预期收益
-
-| Phase | 目标 | 预期 TPS | 备注 |
-|---|---|---|---|
-| 3.2 baseline (current) | HBM-direct, NUM_UNROLL=4 | 421.1 (已落地) | ✅ |
-| 3.2.1 | cp.async 双 buffer | 440-460 (+5-10%) | 当前是 HBM 同步读,加 ping-pong 流水线 |
-| 3.3 | Persistent kernel: 1 launch 串起 200+ GEMV | 500-700 (+20-60%) | 跨 op shmem handoff + atomic queue |
-| 3.4 | Per-row As + multi-K | 同 3.3 | 覆盖非 K=2048 shape |
-
-理论上限(Phase 1 profile 推算): decode step ≈ 224 × (1.5μs 实读 + 8μs gap) ≈ 2.1 ms ⇒ **480 tok/s**,
-加跨 op 复用 weight 的 L2 命中 + cp.async pipeline overlap,**500-700 tok/s 可达**。
-当前 421 还在理论上限附近,要继续提必须 Phase 3.3 持久 kernel 把 launch overhead 砍掉。

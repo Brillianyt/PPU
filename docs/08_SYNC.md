@@ -14,7 +14,6 @@ PPU/
 ├── evaluation_wrapper.py           # ← 不在 gemv_optimization/ 下,直接编辑
 ├── README_REPRODUCE.md             # 主入口文档(SSOT)
 ├── docs/                           # 架构/复现/同步说明
-│   ├── 07_PPU_FRAMEWORK.md         # PPU-fused kernel 框架
 │   ├── 08_SYNC.md                  # ← 本文件
 │   └── ...
 ├── result_repro/                   # benchmark 输出 JSON(每次跑分时增量写入)
@@ -26,24 +25,15 @@ PPU/
 │   │   │   ├── environ.py
 │   │   │   ├── layers/
 │   │   │   │   ├── deep_gemm_wrapper/{compile_utils,entrypoint}.py
-│   │   │   │   └── quantization/w8a8_int8.py          ← [G 类] w8a8_int8 加 v10 ISA fast path
+│   │   │   │   └── quantization/w8a8_int8.py          ← [B 类] INT8 注入 + M-aware 分派
 │   │   │   ├── models/{qwen3_vl.py, qwen3_5.py, ...}
 │   │   │   ├── speculative/eagle_worker_v2.py
 │   │   │   ├── hardware_backend/ppu/attention/ppu_fa3_hooks.py
-│   │   │   ├── compilation/                            ← [G 类] 新建目录
-│   │   │   │   ├── ppu_kernels.py                       ← [G 类] 框架核心
-│   │   │   │   ├── pass_manager.py                      ← [G 类] monkey-patch 装 pass
-│   │   │   │   └── backend.py                           ← [G 类] inductor_config 默认值
 │   │   │   └── platforms/ppu.py
 │   │   └── ...
 │   └── DeepGEMM-for-sail/deep_gemm/
 │       ├── __init__.py
 │       └── jit_kernels/{__init__.py, gemv_int8.py}
-
-# ↑ v10 kernel 不在这里 ↑ — 它在独立的 Python package:
-#   /mnt/workspace/ISA/src/sglang_kernel_v10/
-# 通过 `pip install .` 安装成独立 wheel,sglang 不再 JIT load。
-# 镜像源里不再有 gemv_int8_async.{cu,cpp},2026-08-23 删除。
 │
 └── inductor_hook_PPU/              # RoPE hook(不在 gemv_optimization/,独立 module)
     └── hook/ppu_rotary_hooks.py
@@ -58,7 +48,7 @@ PPU/
 ```bash
 cd /mnt/workspace/PPU
 
-# 1.1 — A/B/C/E + G 类:sglang 改动(共 12 文件)
+# 1.1 — A/B/C/E/F 类:sglang 改动(纯 Python 覆盖)
 cp -rv gemv_optimization/sglang-for-sail/python/sglang/* \
         /usr/local/lib/python3.12/site-packages/sglang/
 
@@ -124,7 +114,7 @@ done
 cp /usr/local/lib/python3.12/site-packages/sglang/srt/compilation/pass_manager.py \
    gemv_optimization/sglang-for-sail/python/sglang/srt/compilation/pass_manager.py
 
-# Step 4:site-packages 上有但镜像源没有的新文件(比如新建的 ppu_kernels.py)
+# Step 4:site-packages 上有但镜像源没有的新文件(比如某个新建文件)
 for f in $(find /usr/local/lib/python3.12/site-packages/sglang -name '*.py' \
               -newer gemv_optimization/sglang-for-sail/python/sglang/__init__.py); do
     rel=${f#/usr/local/lib/python3.12/site-packages/sglang/}
@@ -139,30 +129,19 @@ done
 # Step 5:验证 — 重新跑 README §3.1 的 patch 落地检查
 ```
 
-### 3.2 快速流程(只针对本次会话的几处改动)
+### 3.2 快速流程(针对本次会话的几处改动)
 
-本次会话做了 4 类 site-packages 改动(A 类 wrapper + G 类框架)。反向同步命令:
+本次会话改动示例(pass_manager + w8a8_int8,纯修改非新文件)。反向同步命令:
 
 ```bash
 cd /mnt/workspace/PPU
 
-# A:wrapper 默认值 — 已在 /mnt/workspace/PPU/evaluation_wrapper.py(直接 git diff 就看得到)
-#    如果只是改了 wrapper,直接 commit evaluation_wrapper.py 即可
-
-# G:框架 — 3 个 sglang 文件 + 1 个新文件
-mkdir -p gemv_optimization/sglang-for-sail/python/sglang/srt/compilation
-
-cp /usr/local/lib/python3.12/site-packages/sglang/srt/compilation/ppu_kernels.py \
-   gemv_optimization/sglang-for-sail/python/sglang/srt/compilation/
-
+# 改动过的文件逐个 cp 回镜像源
 cp /usr/local/lib/python3.12/site-packages/sglang/srt/compilation/pass_manager.py \
    gemv_optimization/sglang-for-sail/python/sglang/srt/compilation/
-
-cp /usr/local/lib/python3.12/site-packages/sglang/srt/compilation/backend.py \
-   gemv_optimization/sglang-for-sail/python/sglang/srt/compilation/
-
 cp /usr/local/lib/python3.12/site-packages/sglang/srt/layers/quantization/w8a8_int8.py \
    gemv_optimization/sglang-for-sail/python/sglang/srt/layers/quantization/
+# wrapper 默认值 — 已在 /mnt/workspace/PPU/evaluation_wrapper.py(直接 git diff 就看得到)
 ```
 
 ### 3.3 提交前清单
@@ -170,14 +149,12 @@ cp /usr/local/lib/python3.12/site-packages/sglang/srt/layers/quantization/w8a8_i
 ```bash
 git status gemv_optimization/ evaluation_wrapper.py docs/ result_repro/
 # 期望看到:
-#   modified:   gemv_optimization/sglang-for-sail/python/sglang/srt/compilation/backend.py
 #   modified:   gemv_optimization/sglang-for-sail/python/sglang/srt/compilation/pass_manager.py
 #   modified:   gemv_optimization/sglang-for-sail/python/sglang/srt/layers/quantization/w8a8_int8.py
-#   new file:   gemv_optimization/sglang-for-sail/python/sglang/srt/compilation/ppu_kernels.py
-#   modified:   evaluation_wrapper.py
+#   deleted:    gemv_optimization/sglang-for-sail/python/sglang/srt/compilation/ppu_kernels.py
+#   deleted:    docs/07_PPU_FRAMEWORK.md
 #   modified:   README_REPRODUCE.md
-#   modified:   docs/07_PPU_FRAMEWORK.md (新加)
-#   modified:   docs/08_SYNC.md (新加)
+#   modified:   docs/08_SYNC.md
 #   new file:   result_repro/result_dev_en_r8_inductor_100.json
 #   new file:   result_repro/result_dev_en_r8_final_100.json
 #   new file:   result_repro/result_dev_en_r8_autotune_100.json
@@ -232,7 +209,7 @@ find /usr/local/lib/python3.12/site-packages/sglang -name '*.py' \
      -newer /mnt/workspace/PPU/gemv_optimization/sglang-for-sail/python/sglang/__init__.py
 ```
 
-例:`ppu_kernels.py` 是新建文件,镜像源 `gemv_optimization/sglang-for-sail/.../compilation/` 目录也是新建的。
+例:若某次会话新建了 `qwen3_5.py`,镜像源 `gemv_optimization/sglang-for-sail/.../models/` 里也要补上同名文件。
 
 ### 5.2 镜像源有,但 site-packages 没有的文件(过期)
 
@@ -254,110 +231,3 @@ site-packages 上的 `__pycache__/*.pyc` 可能让 `diff` 报噪音。部署前�
 - 把镜像源当成 git patch,接受随版本漂移
 
 本次 R8 复现依赖 `sglang==0.5.13+v0.1.0.ppu2.1.1`,其它版本未测试。
-
----
-
-## 6. 2026-08-23 sync round: v10 prebuilt integration + layout bug fix
-
-**改动:** 把 v10 INT8 GEMV fast path 从 `torch.utils.cpp_extension.load`
-(JIT 编译,每次冷启动延迟 + 破坏 CUDA graph capture)改成正经 wheel:
-`/mnt/workspace/ISA/src/sglang_kernel_v10/`,`pip install .` 装成独立 Python
-package。同时修了 dispatcher 的 layout bug(`_isa_v10_get_w_nk` 之前做错了
-`.t().contiguous()`,应该是 `.contiguous()`)。
-
-**端到端验证:**
-
-| 配置 | TPS | acc |
-|---|---|---|
-| baseline (no v10) | 411.6 | 0.73 |
-| v10 with bug | 353.0 (-14%) | 0.70 |
-| **v10 fixed** | **421.1 (+2.3%)** | **0.73** |
-
-**这次同步做了什么:**
-1. ✅ `sglang_kernel_v10/` wheel 安装到 site-packages(独立 package,不污染 sglang)
-2. ✅ `w8a8_int8.py` 镜像源 = 当前部署版 (含 `_ISA_V10_ENABLE` / `_ISA_V10_W_CACHE` / `_isa_v10_get_w_nk` / `_isa_load_fast_path` 移除)
-3. ✅ 删除镜像源里的过时 JIT artifact: `gemv_int8_async.{cu,cpp}` 和 `sglang/sglang_kernel_v10/` 旧 stub
-4. ✅ `docs/05_INTEGRATION.md`(ISA 仓)记录 dispatcher 集成 + layout bug + cache invariants + CG 安全性
-5. ✅ `docs/08_SYNC.md`(本节)记录这次 sync 的来源和 diff 范围
-
-**安装步骤:**
-```bash
-# 一次性:装 v10 wheel
-cd /mnt/workspace/ISA/src/sglang_kernel_v10 && pip install .
-
-# 一次性:deploy sglang dispatcher patch
-cp -v /mnt/workspace/PPU/gemv_optimization/sglang-for-sail/python/sglang/srt/layers/quantization/w8a8_int8.py \
-      /usr/local/lib/python3.12/site-packages/sglang/srt/layers/quantization/w8a8_int8.py
-
-# 验证
-python3 -c "
-import torch
-from sglang_kernel_v10 import gemv_int8_async
-from sglang.srt.layers.quantization.w8a8_int8 import gemv_int8_i8i8bf16, _ISA_V10_ENABLE
-print('v10 enabled:', _ISA_V10_ENABLE)
-A = torch.randint(-128, 127, (1, 2048), dtype=torch.int8, device='cuda')
-W = torch.randint(-128, 127, (2048, 8192), dtype=torch.int8, device='cuda')  # (K, N)
-As = torch.ones(1, dtype=torch.float32, device='cuda')
-Bs = torch.ones(8192, dtype=torch.float32, device='cuda')
-out = torch.empty(1, 8192, dtype=torch.bfloat16, device='cuda')
-gemv_int8_i8i8bf16(A, As, W, Bs, out)
-ref = (A.float() @ W.float()).to(torch.bfloat16)
-print('max diff:', (out.float() - ref.float()).abs().max().item())  # expect 0.0
-"
-```
-
-**回滚:**
-```bash
-# 关掉 v10 fast path (回 baseline)
-sed -i 's/^_ISA_V10_ENABLE = True/_ISA_V10_ENABLE = False/' \
-    /usr/local/lib/python3.12/site-packages/sglang/srt/layers/quantization/w8a8_int8.py
-# 完全卸载 wheel
-pip uninstall sglang_kernel_v10
-```
-
----
-
-## 7. 2026-08-23 最终汇报 (Session Summary)
-
-### 7.1 本次会话做了什么
-
-| 阶段 | 产出 |
-|---|---|
-| Phase 0 | 调研 HGGC PDF → `ISA/docs/03_HARDWARE.md` + `ISA/notes/HGGC_PPU001_NOTES.md` |
-| Phase 1 | GEMV profile → deep_gemm 32μs / 4.5% HBM 利用率 (`ISA/docs/01_PROFILE.md`) |
-| Phase 2 | PDK 架构设计 (`ISA/docs/02_ARCHITECTURE.md`) |
-| Phase 3.0 | naive SIMD baseline = 26.78μs vs deep_gemm 31.73μs |
-| Phase 3.1 | HGGC mma 路径 — **否决**(`03_FAILED.md` F9,deep_gemm 自己不用 mma for m=1) |
-| Phase 3.2 | v10 HBM-direct kernel = 6.7μs vs deep_gemm 30.3μs = **4.5×** microbench |
-| Phase 3.2.1 | cp.async 双 buffer — **未跑赢 v10**(微 bench +9%,shmem bank conflicts) |
-| 集成 v0 | JIT hack — 反例(坏做法) |
-| 集成 v1 | 独立 wheel (`sglang_kernel_v10/`) + dispatcher patch — **正解** |
-| 修 bug | F10 dispatcher `.t().contiguous()` reverse-transpose → `.contiguous()` 修好 |
-| 端到端 | 100 样本 Ablation A vs v10,公式评分分析 |
-
-### 7.2 数字一览 (mmbench_dev_en 100, 2026-08-23, 当前 wrapper 配置)
-
-| 方案 | TPS | TTFT | acc | 评分(40/30/30) |
-|---|---|---|---|---|
-| baseline (deep_gemm, 无 v10) | 411.6 | 72.7 | 0.73 | **SSOT 提交件** |
-| + ISA v10 (opt-in) | 421.1 | 75.3 | 0.73 | +0.4% (基本持平) |
-
-### 7.3 决策记录
-
-| 决策 | 结论 | 文档位置 |
-|---|---|---|
-| **v10 默认配置** | **off**,opt-in(`SGLANG_ISA_V10_ENABLE=1` 启用) | `README.md` + `02_RESULTS.md` §2.1 |
-| HGGC mma 路径 | 跳过,深_gemm 也不用 | `03_FAILED.md` F9 |
-| v10 kernel 形态 | HBM-direct SIMT(无 cp.async, 无 mma) | `04_OPTIMIZATIONS.md` §4.6 |
-| 集成模式 | 独立 wheel(`pip install .`),非 JIT hack | `04_OPTIMIZATIONS.md` §4.6.3 |
-| `_ISA_V10_W_CACHE` | 永久 cache,key = `B.data_ptr()`,每层 16MB 一次性 contiguous | `05_INTEGRATION.md`(ISA 仓) |
-| R6/R8 历史 baseline | **不可复现**,作废;新 SSOT = 2026-08-23 实测 | `02_RESULTS.md` §2.1 |
-| Phase 3.3 persistent kernel | **待做**(预期 +20-60% TPS),当前最高优 | `notes/TODO.md`(ISA) |
-
-### 7.4 待办 (Phase 3.3 优先级)
-
-1. **Persistent kernel**: 1 launch 串起 200+ GEMV,消 launch overhead。预期 TPS 500-700
-2. **Per-row As 多 token 支持**: 当前只 M=1,M>1 走 fallback
-3. **多 K 模板**: 当前只 K=2048,K=6144 走 fallback
-4. **TTFT 回归根因**: 3.6% 是 first-request 噪音还是 v10 真拖慢? Phase 3.3 一并分析
-

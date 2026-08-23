@@ -1,5 +1,7 @@
 # README — 复现入口 (SSOT)
-
+> **Quantization Model**:oss://seu-zhangkaiyang-sglang-best.oss-cn-wulanchabu.aliyuncs.com
+>  选择挂载路径 /mnt/oss_data
+> /mnt/oss_data/models/Qwen_quant/Qwen3.5-2B-S2-aggressive 
 > **Single Source of Truth** for 复现路径。本文件与 [`docs/02_RESULTS.md`](docs/02_RESULTS.md)
 > §2.1 互为 SSOT,其它 doc 出现的数字若与本文件冲突,以本文件为准。
 >
@@ -32,43 +34,32 @@ PPU_SDK=/usr/local/PPU_SDK python3 benchmark_public.py \
 > 量化损失 < 4pp,在统计噪声范围。
 >
 > **TTFT median 优于 R8 spec 5%** — inductor PiCG + ViT CG 组合在 prefill 路径
-> 真做算子融合;详情见 §2.3 + `docs/07_PPU_FRAMEWORK.md`。
+> 真做算子融合;详情见 §2.3。
 
 ## 1. 五步复现流程
 
 ```
-[1] 部署 7 类共 14 文件 patch (§2.4 Step 1)
+[1] 部署 6 类共 11 文件 patch (§2.4 Step 1)
        ↓
-[2] (可选) 部署 ISA v10 GEMV wheel — opt-in 增强
+[2] 启动 sglang server(wrapper 自动启,无需手工)
        ↓
-[3] 启动 sglang server(wrapper 自动启,无需手工)
+[3] benchmark_public.py 跑分(--backend sglang 自动连 wrapper)
        ↓
-[4] benchmark_public.py 跑分(--backend sglang 自动连 wrapper)
+[4] 读 result_*.json,核对 §3.2 期望数字
        ↓
-[5] 读 result_*.json,核对 §3.2 期望数字
-       ↓
-[6] 若不符,按 §4 故障表定位
+[5] 若不符,按 §4 故障表定位
 ```
 
 patches 通过纯 Python `cp` 覆盖到 site-packages,**不改 C++ 扩展**。回退 `git restore`
 site-packages 即可还原。
-
-> **ISA v10 GEMV (opt-in, 2026-08-23)** — 若需要 v10 增强路径:
-> ```bash
-> cd /mnt/workspace/PPU/gemv_optimization/sglang_kernel_v10
-> bash install_v10.sh    # pip install sglang_kernel_v10 + 部署 dispatcher patch
-> export SGLANG_ISA_V10_ENABLE=1   # 启用 v10 fast path
-> ```
-> 默认关闭,opt-in。详见 [`docs/04_OPTIMIZATIONS.md §4.7`](docs/04_OPTIMIZATIONS.md)
-> + [`技术方案报告_完整版.md §4.4 / §5.5`](技术方案报告_完整版.md)。
 
 ## 2. 三档启动配置 (挑选其中一个)
 
 | 变体 | 推荐场景 | 实测数字 (en 100, warmup 8) | patches |
 |---|---|---|---|
 | **G 组 bf16** §2.1 | 简单、无 patch、对照基线 | acc 0.81 / TTFT 73ms / tput 357 tok/s (500 样本) | 无 |
-| **R6 (极致 TTFT+acc)** §2.2 | triton_attn mm-backend 对照 | acc 0.74 / TTFT 64ms / tput 429 tok/s | 全部 7 类 |
-| **R8 (极致 TPS)** §2.3 | **当前默认** | acc 0.73 / TTFT 63ms / tput 412 tok/s / 51 s | 全部 7 类 |
+| **R6 (极致 TTFT+acc)** §2.2 | triton_attn mm-backend 对照 | acc 0.74 / TTFT 64ms / tput 429 tok/s | 全部 6 类 |
+| **R8 (极致 TPS)** §2.3 | **当前默认** | acc 0.73 / TTFT 63ms / tput 412 tok/s / 51 s | 全部 6 类 |
 
 ### 2.1 G 组 bf16 (对照基线, 不打 patch)
 
@@ -148,26 +139,24 @@ PPU_SDK=/usr/local/PPU_SDK python3 benchmark_public.py ...
 
 ### 2.4 Patch 部署 (Step 1,一次性)
 
-⚠️ **必须**在启动 server 之前完成。位置 = `PPU/gemv_optimization/`(A-G 类) +
+⚠️ **必须**在启动 server 之前完成。位置 = `PPU/gemv_optimization/`(A-F 类) +
 `PPU/inductor_hook_PPU/hook/`(F)。
 
-**类清单**(共 7 类 14 文件):
+**类清单**(共 6 类 11 文件):
 
 | 类 | 来源 | 部署目标 | 作用 | 不打的代价 |
 |---|---|---|---|---|
 | **A** GEMV env | `gemv_optimization/.../environ.py` | `sglang/srt/environ.py` | 注册 `SGLANG_SAIL_USE_GEMV` 等 env vars | env vars 静默 no-op |
-| **B** W8A8 INT8 注入 + 框架 functional siblings | `gemv_optimization/.../w8a8_int8.py` | `sglang/srt/layers/quantization/w8a8_int8.py` | 把 `gemv_int8_i8i8bf16` 注入 apply 路径 + 新增 `_nm` functional siblings(给 ppu_kernels 框架) | decode 走 fallback;框架无法注册 |
+| **B** W8A8 INT8 注入 | `gemv_optimization/.../w8a8_int8.py` | `sglang/srt/layers/quantization/w8a8_int8.py` | 把 `gemv_int8_i8i8bf16` 注入 apply 路径 | decode 走 fallback |
 | **C** Wrapper 接入 | `gemv_optimization/.../{compile_utils,entrypoint}.py` | `sglang/srt/layers/deep_gemm_wrapper/` | 暴露 `gemv_nt_i8i8bf16` | AttributeError |
 | **D** GEMV JIT | `gemv_optimization/.../{__init__.py, jit_kernels/{__init__.py, gemv_int8.py}}` | `deep_gemm/` | GEMV JIT 编译 | GEMV 算子完全缺失 |
 | **E** ViT CG 修复 | `gemv_optimization/.../qwen3_vl.py` + `.../ppu_fa3_hooks.py` | `sglang/srt/models/qwen3_vl.py` + `sglang/srt/hardware_backend/ppu/attention/ppu_fa3_hooks.py` | 让 ViT 走 PPU 原生 FA3 + 杜绝 rotary workspace 懒扩展破坏 graph | 开 ViT CG 后精度 −15pp、cn 集直接崩到 0 |
 | **F** Inductor RoPE hook | `inductor_hook_PPU/hook/ppu_rotary_hooks.py` | `sglang/srt/hardware_backend/ppu/attention/ppu_rotary_hooks.py` + `sglang/srt/platforms/ppu.py` 加 1 行 import | 把 RoPE 包成 `torch.library.custom_op`,让 inductor 看不到函数体,绕开 `_get_sfdp_patterns` | 启动 ~30s 后崩 `Cannot copy between CPU and CUDA tensors during CUDA graph capture` |
-| **G** PPU-fused kernel 框架(架构修复)| `gemv_optimization/.../compilation/{ppu_kernels,pass_manager,backend}.py` | `sglang/srt/compilation/{ppu_kernels,pass_manager,backend}.py` | 让手写 CUDA kernel 能真正参与 inductor fusion,而不是 opaque 黑盒。`@ppu_fused_kernel` 装饰器 + `PpuPrologueFusionPass` 自动装上 | 框架不工作 — 手写 kernel 仍在 inductor 眼中是不透明节点 |
-| **(2026-08-23 新增) ISA v10 GEMV wheel** | `gemv_optimization/sglang_kernel_v10/`(独立 Python 包,**非** site-packages 覆盖) | `pip install .` → `site-packages/sglang_kernel_v10/_C.so` + 自动部署 `w8a8_int8.py` dispatcher patch | K=2048 M=1 INT8 GEMV fast path (3-4.5× microbench) | **opt-in 增强**,不打的代价 = 用默认 deep_gemm GEMV (不影响 R6 提交件) |
 
 ```bash
 cd /mnt/workspace/PPU
 
-# 1.1 — A/B/C/E: sglang 9 文件 + quant recipe + G 类
+# 1.1 — A/B/C/E: sglang 9 文件 + quant recipe
 cp -rv gemv_optimization/sglang-for-sail/python/sglang/* \
         /usr/local/lib/python3.12/site-packages/sglang/
 
@@ -232,15 +221,7 @@ grep -c "ppu_vision_flash_attn_varlen_func" \
 ls /usr/local/lib/python3.12/site-packages/sglang/srt/hardware_backend/ppu/attention/ppu_rotary_hooks.py
 # F2
 grep "ppu_rotary_hooks" /usr/local/lib/python3.12/site-packages/sglang/srt/platforms/ppu.py  # ≥ 1
-# G1 — framework module
-ls /usr/local/lib/python3.12/site-packages/sglang/srt/compilation/ppu_kernels.py   # exists
-# G2 — w8a8_int8.py 多了 _nm siblings
-grep -c "ppu_fused_kernel\|gemv_int8_i8i8bf16_nm\|gemm_nt_i8i8bf16_nm" \
-  /usr/local/lib/python3.12/site-packages/sglang/srt/layers/quantization/w8a8_int8.py  # ≥ 3
-# G3 — pass_manager 末尾 patch
-grep -c "_ppu_patched_configure\|PpuPrologueFusionPass installed" \
-  /usr/local/lib/python3.12/site-packages/sglang/srt/compilation/pass_manager.py  # ≥ 2
-# G4 — wrapper 默认走 inductor (而不是 server_args.py 默认的 eager)
+# W — wrapper 默认走 inductor (而不是 server_args.py 默认的 eager)
 grep -oE "SGLANG_PIECEWISE_CUDA_GRAPH_COMPILER.*inductor" \
   /mnt/workspace/PPU/evaluation_wrapper.py  # 必须存在
 
@@ -248,7 +229,6 @@ grep -oE "SGLANG_PIECEWISE_CUDA_GRAPH_COMPILER.*inductor" \
 LATEST=$(ls -t /mnt/workspace/PPU/logs/sglang_server_*.log | head -1)
 grep "SGLANG_SAIL_USE_ACEXT_CUDA version" "$LATEST"   # 见 "1050100, token limit: 4096"
 grep "Applied 1 hook(s) to sglang.srt.layers.rotary_embedding.utils.apply_rotary_pos_emb" "$LATEST"  # 至少 1 行
-grep "PpuPrologueFusionPass installed" "$LATEST"      # G 类框架装上了
 grep -oE "piecewise_cuda_graph_compiler='[^']+'" "$LATEST" | head -1   # 必须是 'inductor'
 ```
 
