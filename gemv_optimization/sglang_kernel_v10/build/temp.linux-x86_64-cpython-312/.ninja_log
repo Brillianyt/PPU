@@ -1,0 +1,3 @@
+# ninja log v5
+0	2556	1787476407206266930	/mnt/workspace/PPU/gemv_optimization/sglang_kernel_v10/build/temp.linux-x86_64-cpython-312/mnt/workspace/PPU/gemv_optimization/sglang_kernel_v10/csrc/gemv_int8_async.o	b9545b7fa8444c1a
+0	22255	1787476426895253557	/mnt/workspace/PPU/gemv_optimization/sglang_kernel_v10/build/temp.linux-x86_64-cpython-312/mnt/workspace/PPU/gemv_optimization/sglang_kernel_v10/csrc/gemv_int8_async_wrapper.o	df4d6222a57fa12d
