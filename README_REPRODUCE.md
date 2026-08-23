@@ -227,7 +227,6 @@ grep -oE "SGLANG_PIECEWISE_CUDA_GRAPH_COMPILER.*inductor" \
 
 # Server 启动日志回执:
 LATEST=$(ls -t /mnt/workspace/PPU/logs/sglang_server_*.log | head -1)
-grep "SGLANG_SAIL_USE_ACEXT_CUDA version" "$LATEST"   # 见 "1050100, token limit: 4096"
 grep "Applied 1 hook(s) to sglang.srt.layers.rotary_embedding.utils.apply_rotary_pos_emb" "$LATEST"  # 至少 1 行
 grep -oE "piecewise_cuda_graph_compiler='[^']+'" "$LATEST" | head -1   # 必须是 'inductor'
 ```
@@ -277,11 +276,11 @@ print(f'TTFT median = {statistics.median(ttfts):.1f} ms (稳态判断用)')
 | 启动 ~30s 后崩 `Cannot copy between CPU and CUDA tensors during CUDA graph capture` / 栈底 `_get_sfdp_patterns` | PPU 上 Inductor SDPA pattern init 路径不安全,ViT + RoPE `@torch.compile` 撞 capture | **部署 F 类 inductor RoPE hook**(§2.4 step 1.3-1.4)。**不要关 ViT CG**,TTFT 会退化 −13% |
 | `AttributeError: module 'deep_gemm' has no attribute 'gemv_int8_int8_bf16_nt'` | D 类 patch 未装 | §2.4 step 1.2 |
 | TTFT ~87 ms(标称 ~64 ms) | GEMV custom op 缺失,C 类 patch 未装 | §2.4 step 1.1 |
-| log 里无 `SGLANG_SAIL_USE_ACEXT_CUDA version` | ACEXT 没加载,w8a8_int8 quant 路径未激活 | 确认 `--quantization w8a8_int8`、检查 `SGLANG_SAIL_USE_ACEXT_CUDA` 不是 0 |
+| log 里无 ACEXT 加载信号 | R8 默认不走 ACEXT(已被 DEEPGEMM_DENSE 强制绕开) | 这是预期行为 — GEMV 才是正确路径 |
 | `ValueError: Transformers does not recognize this architecture` (model_type=qwen3_5) | transformers 4.57.1 不识别 Qwen3.5 | 走 sglang 后端 (`--backend sglang`) |
 | 启动 12s 内崩在 `fused_sigmoid_gating_recurrent.py line 339` | EAGLE/NEXTN 投机解码与 Qwen3.5 GDN 不兼容 | 移除 `--speculative-*` 参数。**Qwen3.5 上投机解码完全不可用** |
 | INT8 乱码输出 ("eneene个个…") | SGLang < 0.5.13, w8a8_int8 有 garbage output bug | 升级到 **0.5.13+**(本仓已装) |
-| accuracy 0.66 | INT8 + triton attention (无 FLA、ACEXT) | 改回 wrapper 自动启路径(FLA=1 + ACEXT + ViT CG 全开)|
+| accuracy 0.66 | INT8 + triton attention (无 FLA、PiCG 路径错) | 改回 wrapper 默认路径(FLA=1 + GEMV + PREFILL_BF16 + ViT CG 全开)|
 | accuracy 在 0.74-0.83 飘 | 100 样本采样噪声主导 | 不是 bug,不要重跑 patch;500 样本会稳定 |
 
 ## 5. 结果评估口径
@@ -290,9 +289,10 @@ print(f'TTFT median = {statistics.median(ttfts):.1f} ms (稳态判断用)')
   冷启动样本单样本 TTFT ~430 ms),median 才是稳态真实水平。
 - **acc 用 mean ± 95% CI ±9.6pp** 判断。同一 100 样本多次跑 acc 会在 ±8pp 区间
   内浮动。`docs/02_RESULTS.md` §2.4 给同 qid 对照的"真实量化损失 = 2pp"数据。
-- **不要把 `SGLANG_SAIL_USE_ACEXT_CUDA=0` 当成"真走 GEMV"**。详见
-  [`docs/01_ENVIRONMENT.md`](docs/01_ENVIRONMENT.md) §1.11 —— PPU fork 的
-  `_handle_ppu_backends()` 会强制覆盖它。
+- **不要把 `SGLANG_SAIL_USE_ACEXT_CUDA=0` 当成"避开 ACEXT"** — PPU fork 的
+  `_handle_ppu_backends()` 在 DEEPGEMM_DENSE=1 时根本到不了 ACEXT 分支。
+  即使能到,真 ACEXT(TPS 349.6)实测远差于 GEMV(TPS 414.9,−15.7%),
+  因为 ACEXT 不接 PREFILL_BF16 优化。**R8 唯一正确选择是 GEMV**。
 - **不要用 `--enforce-piecewise-cuda-graph`**。`evaluation_wrapper.py:188-203`
   注释里专门记录了这条 avoid 路径,会触发 `cuda_piecewise_backend.py:171` PCG
   stream assert,scheduler 直接死掉。VLM 工作负载下 PiCG 已经被 PPU fork 的

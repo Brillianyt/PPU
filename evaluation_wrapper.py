@@ -235,23 +235,17 @@ class _SGLangServer:
         env.setdefault("SGLANG_VLM_CACHE_SIZE_MB", "0")
 
         # === GEMV / 量化分派 + 自动 warmup(本仓库 patches 注入)===
-        # 本路线目标:GEMV 真正进入 CUDA Graph,不被 ACEXT 互斥绕过。
-        # GEMV 默认开启 + warmup 默认开启;ACEXT 默认关闭。
-        env["SGLANG_SAIL_DEEPGEMM_DENSE"] = "1"
+        # 本路线目标:GEMV 真正进入 CUDA Graph,在 PPU 流水线里最优。
+        # 实测对比(100 样本 en,真 ACEXT vs GEMV):GEMV TPS 414.9 / 真 ACEXT TPS 349.6
+        # — 差距 65 tok/s(-15.7%)。真 ACEXT 不接 PREFILL_BF16,prefill 走 sgl_kernel
+        # .int8_gemm 比 BF16 慢,整链路负优化。R8 唯一正确选择是 GEMV。
+        # DEEPGEMM_DENSE 用 setdefault 允许外部 SGLANG_SAIL_DEEPGEMM_DENSE=0 关闭,
+        # (仅用于消融实验,生产永远保持 1)
+        env.setdefault("SGLANG_SAIL_DEEPGEMM_DENSE", "1")
         env.setdefault("SGLANG_SAIL_USE_GEMV", "1")
         env.setdefault("SGLANG_SAIL_GEMV_M_MAX", "8")
         env.setdefault("SGLANG_SAIL_GEMV_WARMUP_ON_LOAD", "1")
-        env["SGLANG_SAIL_PREFILL_BF16"] = "1"
-
-        # === ACEXT(与 GEMV 互斥接管 dense linear)===
-        # 默认走 GEMV:R8 record (TPS 434.05, /tmp/r8.log Aug 21 20:30) 是
-        # GEMV + PiCG ON + ViT CG ON 跑出来的。§37 测 ACEXT 423 / GEMV 418
-        # 是无 PiCG 的纯 dense linear 对比;一旦 PiCG 接管,ACEXT 的
-        # sgl_kernel.int8_gemm 会被 PiCG 的 persistent-kernel 路径 bypass,
-        # GEMV 反而赢(434 vs ACEXT + PiCG 已知 410.x)。
-        # 切回 ACEXT:export SGLANG_SAIL_USE_ACEXT_CUDA=1
-        use_acext = os.environ.get("SGLANG_SAIL_USE_ACEXT_CUDA", "0") == "1"
-        env["SGLANG_SAIL_USE_ACEXT_CUDA"] = "1" if use_acext else "0"
+        env.setdefault("SGLANG_SAIL_PREFILL_BF16", "1")
 
         # === DEBUG:GEMV 是否真在 CG capture/replay 中被调用 ===
         # 设 1 时 wrapper __call__ 会输出每帧调用 + capturing 状态。
