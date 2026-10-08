@@ -3,7 +3,7 @@
 > **用途**：现场汇报（默认按 20 分钟讲 + 10 分钟问答设计，每页标注建议时长，可按 15 分钟压缩讲稿中的「补充」段）。
 >
 > **四处已统一的表述口径**（避免评审追问）：
-> 1. 不是「量化没效果」，而是 **「量化有效，但收益在 sglang/PPU 的默认执行路径上无法直接兑现——被框架吃掉了」**。量化有效性的证据：算力与权重带宽减半、transformers 端 68% 量化率零精度损失；无法兑现的证据：纯量化接入 sglang 后 TPS −2.7%、TTFT +3.1%。P1 / P8 / P15 / P17 的措辞统一按此口径。
+> 1. 不是「量化没效果」，而是 **「量化有效，但收益在 sglang/PPU 的默认执行路径上无法直接兑现——被框架吃掉了」**。量化有效性的证据：算力与权重带宽减半、transformers 端 68% 量化率零精度损失；无法兑现的证据：纯量化接入 sglang 后 TPS −2.7%、TTFT +3.1%。P8 / P15 / P18 的措辞统一按此口径（P1–P4 为"充分使用现有框架"的探索式开篇，先不抛结论）。
 > 2. transformers 端不是「精度提升」，而是 **「68% 量化率下零精度损失」**；
 > 3. 不是「算子仍然是 bf16」，而是 **「权重量化了、算子形态没量化」**（保护层仍走 BF16 kernel，量化层落进 M≥16 的 GEMM 形态，M=1 被 pad，浪费 94% 算力）；
 > 4. M=8 阈值表述为 **「几何依据（张量核 BLOCK_M=16 下限）+ 实测 sweet spot」**，不声称做过完整参数扫描。
@@ -16,15 +16,17 @@
 
 **屏幕**
 - 主标题：Qwen3.5-2B 在 PPU-ZW810E 上的 INT8 量化与算子-图协同优化
-- 副标题（一句话结论）：**量化有效，但 sglang 的默认执行路径吃掉了它的收益；把收益释放出来，靠「算子形态特化 + CUDA Graph 封装 + 双阶段分派 + ViT 图捕获」四件事的协同**
+- 副标题（三步走）：**① 先把现有框架压榨到底，锁定 sglang 最佳配置作为落脚点 → ② 引入 INT8 量化 → ③ 打通框架层，把量化的收益释放出来**
 - 底部：提交件 `evaluation_wrapper.py` · 数据 en/cn 双集 100 样本
 
 **讲稿**
-> 各位好。这次汇报的核心结论我放在第一页，请特别留意措辞：**量化是有效的**——它把算力需求和权重带宽都减半，我们在 transformers 上验证过，68% 的量化率下精度零损失。**但这份收益，在 sglang 的默认执行路径上跑不出来**：纯量化接入 sglang 后，我们实测吞吐反而掉了 2.7%、TTFT 变慢 3.1%。
+> 各位好。我先说这次工作的展开方式，因为它决定了后面所有事情的解释顺序。
 >
-> 所以这次工作的实质，**不是"给模型补上量化的收益"，而是"把量化本应带来的收益从框架里释放出来"**。释放靠四件必须协同的事：把 decode 的算子从 GEMM 形态换成 GEMV 形态、把算子封装成 CUDA Graph 能识别的类型、按 token 数把 prefill 和 decode 分派到各自最优路径、再把 ViT 视觉编码也纳入图捕获。
+> **在做任何"改进"之前，我先做的是"充分使用"**——不写任何算子、不改任何源码，先把现有框架能压榨的空间尽量试完，看看这套技术栈在最好的配置下到底能跑到什么水平。我们做了六组参数对照，最后确认：**sglang 在其中一组特定配置下有绝对领先的优势**（相对默认配置，TTFT 降低 84.6%、吞吐提升 29.7%）。这组配置就成为了后续所有工作的**落脚点和参照系**。
 >
-> 最终结果：中文数据集上**精度零损失（0.82 = 0.82）**、吞吐 +9.8%、TTFT −9%，是严格的 Pareto 改进；英文数据集吞吐 +15%、TTFT −14%、精度差异在 100 样本置信区间内不显著。
+> 有了这个基线，第二步才是引入 INT8 量化；第三步，是在量化模型上发现框架层的瓶颈——量化带来的算力收益并没有自动兑现——于是做算子形态、CUDA Graph 封装与分阶段分派的协同优化。汇报就按这三步展开。
+>
+> 这条路走下来，最终结果是——中文数据集上**精度零损失（0.82 = 0.82）**、吞吐 +9.8%、TTFT −9%，是严格的 Pareto 改进；英文数据集吞吐 +15%、TTFT −14%、精度差异在 100 样本置信区间内不显著。
 
 ---
 
@@ -48,7 +50,7 @@
 
 ---
 
-## P3 · 第一步：框架选型与最佳基线（2 min）
+## P3 · 第一步：先把现有框架压榨到底（框架选型与最佳基线）（2 min）
 
 **屏幕**
 | 组 | 增量改动 | acc | TTFT | TPS |
@@ -60,13 +62,14 @@
 | E | + `--chunked-prefill-size 2048` | 0.85 | 69.9 ms | 375.3（噪声内） |
 | **G ⭐** | D + `--page-size 64` | **0.85** | **64.7 ms** | **369.0** |
 
+- 起点对照：**transformers 直接推理 baseline（20 样本）acc 0.75 / TTFT 188 ms / 吞吐 55 tok/s**——迁移到 sglang 调优后（R6）相对它是 **TTFT −66%、吞吐 +680%**
 - G 组 vs A 组：**TTFT −84.6%、吞吐 +29.7%、acc +5pp**
 - 三项增益正交叠加：fa3（CUDA Graph 抓取 49.7s→4.0s）· FLA_CUDA（消掉 GDN 的 330 ms TTFT 平台）· 关 radix（顺带打开 overlap schedule）
 
 **讲稿**
-> 框架选型这里有一个被动的结论：**transformers 后端在这台机器上根本不可用**——transformers 4.57.1 不认识 `qwen3_5` 这个架构，所以 sglang 不是偏好而是唯一可行路径。
+> 回到第一步：**在动手改进之前，我先做的是充分使用现有框架**——不写算子、不改源码，把能试的配置都试一遍，看它到底能跑到什么水平。先试的是 transformers 直接推理：它能勉强跑通，但 20 样本下只有 **55 tok/s、首 token 188 毫秒**（acc 0.75）；而且换到量化模型目录后，transformers 4.57.1 直接报"不识别 qwen3_5 架构"，连模型都加载不进去。所以候选框架实际只剩 sglang，接下来的问题就变成：它的参数能调到什么程度。
 >
-> 基线调优走了六组对照，三个增益互相正交：
+> 我们做了六组参数对照，三个增益互相正交：
 >
 > 第一，**attention 后端从 triton 换成 fa3**，CUDA Graph 的抓取时间从 49.7 秒降到 4 秒，TTFT 从 419 降到 313 毫秒。
 >
@@ -74,68 +77,62 @@
 >
 > 第三，**关掉 radix cache**。这个评测的 prompt 都不重复，缓存只有查表开销没有命中收益；更妙的是关掉它之后 sglang 会自动打开 prefill/decode 的重叠调度，吞吐直接涨 32%。
 >
-> 最后加 `--page-size 64`，把 TTFT 从 69 收到 64.7。这就是我们的最佳基线，后面所有对比都以它或它的 bf16 版本为参照。
+> 最后加 `--page-size 64`，把 TTFT 从 69 收到 64.7 毫秒。**相对默认配置，这组配置把 TTFT 压掉 84.6%、吞吐提升 29.7%、精度还高 5 个点——这就是"充分使用现有框架"能达到的上限，也是我们认定的最优落脚点**。后面的量化、算子、图优化，全部以它为参照系。
 
 ---
 
-## P4 · 最佳参数配置总表（1.5 min）
+## P4 · 基线参数配置（"充分使用现有框架"的全部产出）（1.5 min）
 
 **屏幕**
+- 阶段：**Qwen3.5-2B 原模型（bf16）**——本页不含量化相关的任何参数
 
-服务器启动参数（提交件自动组装）：
+服务器启动参数（基线）：
 ```
---attention-backend fa3        --enable-multimodal   --dtype bfloat16
---mem-fraction-static 0.75     --page-size 64        --disable-radix-cache
---quantization w8a8_int8       ★必传
---enable-piecewise-cuda-graph  --piecewise-cuda-graph-compiler inductor
---mm-attention-backend fa3     --cuda-graph-max-bs 16
+--attention-backend fa3        --trust-remote-code    --tp-size 1
+--enable-multimodal            --dtype bfloat16
+--mem-fraction-static 0.75     --page-size 64         --disable-radix-cache
 ```
 关键环境变量：
 
 | 变量 | 值 | 作用 |
 |---|---|---|
-| `SGLANG_SAIL_DEEPGEMM_DENSE` | 1 | 进入 DeepGEMM 分支（关键保护，挡住 ACEXT 路径） |
-| `SGLANG_SAIL_USE_GEMV` / `GEMV_M_MAX` | 1 / **8** | decode GEMV 开关与分派阈值 |
-| `SGLANG_SAIL_PREFILL_BF16` | 1 | prefill 反量化走 BF16 GEMM |
-| `SGLANG_SAIL_GEMV_WARMUP_ON_LOAD` | 1 | 加载期预热 JIT，推理期零编译 |
-| `SGLANG_SAIL_FLA_CUDA` | 1 | PPU 原生 GDN kernel |
-| `SGLANG_VIT_ENABLE_CUDA_GRAPH` | 1 | ViT 图捕获 |
-| `SGLANG_CUDA_GRAPH_MAX_BS` | 16 | decode 图覆盖 bs=1..16（实测 sweet spot） |
-| `SGLANG_PIECEWISE_CUDA_GRAPH_COMPILER` | inductor | prefill 分段图 + 算子融合 |
+| `SGLANG_SAIL_FLA_CUDA` | **1** | GDN 走 PPU 原生 CUDA kernel（**源码默认 False，必须显式打开**，收益最大的一项） |
 
-**明确禁用**：`--enforce-piecewise-cuda-graph`（杀死 scheduler）、`--enable-torch-compile`（PPU 上 codegen bug）、任何 `--speculative-*`（GDN 不兼容，启动 12 秒必崩）
+**试过但否决的**：`--chunked-prefill-size 2048`（噪声内无收益）· 保留 radix cache（只有查表开销）· 投机解码（启动 12s 必崩）
+
+**效果**：TTFT **64.7 ms** · TPS **369.0** · acc **0.85**（en 20 样本）；相对默认配置 **TTFT −84.6%、吞吐 +29.7%、acc +5pp**
+
+> 量化模型出现之后的完整配置（`w8a8_int8` + GEMV + 图）见 **P17**。
 
 **讲稿**
-> 这是最终配置。只想强调四个"必须"：
+> 这一页是"充分使用现有框架"的全部产出。请注意一个关键点：**它不包含任何量化相关的参数**——到这一步为止，我们用的还是 bf16 原模型。
 >
-> `--quantization w8a8_int8` 必须显式传，否则会 fallback 到 compressed-tensors 路径，去调 PPU 上根本不存在的 `int8_scaled_mm`，直接崩。
+> 配置本身只有三样：attention 用 fa3、`page-size` 用 64、关掉 radix cache。再加上一个必须显式打开的环境变量 `FLA_CUDA`——它在源码里的默认值是 `False`，这是最容易漏掉、也是收益最大的一项。
 >
-> `DEEPGEMM_DENSE=1` 是个保护性开关——它让 ACEXT 那条厂商算子路径永远到不了，原因我后面会用数据说明。
+> 顺便交代我们试过但没用的：`chunked-prefill` 设 2048 在噪声内没有收益；保留 radix cache 反而更差；投机解码在这个模型上根本起不来。
 >
-> `GEMV_M_MAX=8` 是双阶段分派的阈值，prefill 和 decode 走完全不同的算子。
->
-> `--cuda-graph-max-bs 16` 是我们在 1 到 256 之间实测出来的 sweet spot。
->
-> 禁用项也请留意：`enforce-piecewise-cuda-graph` 会触发一个 stream 断言把调度器直接干掉；`torch-compile` 在 PPU 上对 causal conv 的 codegen 有 bug；投机解码在 Qwen3.5 上完全不可用——这三条我们都写进了故障排查表。
+> 效果是 TTFT 64.7 毫秒、吞吐 369 tok/s、精度 0.85。**量化相关的参数我放到后面 P17 一起讲，因为它们只有在量化模型出场之后才有意义。**
 
 ---
 
-## P5 · 为什么量化：系统分析给出的动机（1.5 min）
+## P5 · 为什么量化：最直接的加速手段（1.5 min）
 
 **屏幕**
-- 原始模型 G 组 60 秒 kernel trace：**GEMM 占 73.4%**，其中 72.7% 是三种 `gemvt_op` tile（32×4 占 56.1%），共 **265,775 次 GEMV 调用**
-- 量化模型 60 秒 trace：**GEMM 占 56.07%**（168,713 次），其中 `gemvt_op` **~266,000 次 ≈ 4400 calls/s**；element-wise ~30%、attention ~10%
-- grid 拆分反推：GEMV 集中在 `q/k/v/o_proj`、GDN 投影（in_proj/out_proj）、MLP gate/up、`lm_head`
-- 一句话：**decode 阶段的线性层以 GEMV 形态占绝对主导**
+- 硬件前提：模型 bf16 仅占 4.3 GB、显存 96 GB → 量化动机**不是省显存，而是算力与权重带宽减半**
+- 原始模型系统分析（G 组 60 秒 kernel trace）：
+  - **GEMM 占 73.4%**，其中 72.7% 是三种 `gemvt_op` tile（32×4 占 56.1%），共 **265,775 次 GEMV 调用**（均值 19.3 μs）
+  - grid 拆分反推：GEMV 集中在 `q/k/v/o_proj`、GDN 投影（in_proj/out_proj）、MLP gate/up、`lm_head`
+  - 一句话：**decode 阶段的线性层以 GEMV 形态占绝对主导**
+- 下一步的问题：**量化哪些层、以什么方式量化？** 太保守收益吃不满，太激进精度会崩 → **需要一套足够精确的选层框架，在精度不变的前提下尽可能量化不敏感层** → 引出 AMQ（P6）
 
 **讲稿**
-> 量化的动机来自系统分析工具，不是拍脑袋。
+> 先说为什么选量化。它是这套硬件上最直接的加速手段：INT8 把计算量和权重带宽都减半；而模型本身 bf16 只占 4.3 GB、显存有 96 GB，完全够用——**所以我们要的不是省显存，是省算力**。
 >
-> 我们对原始模型做了 60 秒的 kernel trace：GEMM 占了 73.4% 的时间，而这 73.4% 里面有 72.7% 是同一个 GEMV kernel 的三种 tile——26 万次调用，每次平均 19 微秒。这说明**瓶颈根本不在"大矩阵乘"，而在 decode 阶段"一个激活向量乘以一个大权重矩阵"这个动作上**。
+> 那这股加速应该往哪里打？这由系统分析决定。我们对原始模型做了 60 秒的 kernel trace：**GEMM 占了 73.4% 的时间，而这 73.4% 里面有 72.7% 是同一个 GEMV kernel 的三种 tile**——26 万次调用，平均每次 19 微秒。这说明瓶颈不在"大矩阵乘"，而在 decode 阶段"一个激活向量乘以一个大权重矩阵"这个动作上。我们还用 grid 维度做了反推，把 GEMV 精确定位到五类 Linear 层：注意力的 q/k/v/o 投影、GDN 的 in_proj 和 out_proj、MLP 的 gate/up，以及 lm_head。
 >
-> 我们还用 grid 维度做了反推，把 GEMV 精确定位到五类 Linear 层：注意力的 q/k/v/o 投影、GDN 的 in_proj 和 out_proj、MLP 的 gate/up，以及 lm_head。
+> 但紧接着就遇到下一个问题：**量化哪些层、以什么方式量化**。保护得太保守，收益吃不满；放得太开，精度会崩——这两类失败我们在早期实验里都踩过。所以量化不是随便挑一个配方就行，它**需要一套足够精确的选层框架，能在精度不变的前提下，尽可能多地把不敏感的层量化掉**。
 >
-> 所以量化不是目的，**它只是让我们有机会把这个占大头的算子换成更合适的形态**。这页是整个方案的战略依据。
+> 这就是我们选择 AMQ 的原因。下一页讲它的原理。
 
 ---
 
@@ -158,7 +155,7 @@
 - **核心结论：量化边界由敏感度排序决定，而不是由覆盖率决定**（与"尽量多量化"的直觉相反）
 
 **讲稿**
-> 量化方案我们最终用的是 AMQ，Activation-aware Mixed Quantization。它的原理不复杂但很有效：**逐层量化，然后测每一层的 INT8 重建误差，用这个误差给层排敏感度序**。
+> 上一页留下的问题是"到底哪些层能量化"。我们选的框架是 AMQ，Activation-aware Mixed Quantization，它的原理不复杂但很有效：**逐层试量化，测每一层的 INT8 重建误差，再用这个误差给所有层排出一个敏感度序**。误差大说明这层不耐量化，误差小说明可以放心压到 INT8。
 >
 > 这张表就是敏感度分析的结果，很有信息量：最敏感的是 GDN 的状态投影 `in_proj_a/b`，误差 0.0154；最不敏感的是 MLP 的 gate 和 up，0.0092，差了快一倍。误差超过 0.015 的 23 层里，18 层都是这两个状态投影。
 >
@@ -187,10 +184,12 @@ transformers 库直接对比（权重 int8→BF16 反量化，激活 BF16）：
 
 **结论：68% 量化率下零精度损失**（30 样本 S2 表面高 3.3pp，在 ±1 题噪声内）
 
+> **本页只比精度，不比性能**——transformers 侧的算法是权重 int8 → 反量化回 BF16 再算、激活保持 BF16，耗时与 bf16 完全相同，**性能维度不可比**。这也正是"迁移到 sglang 之后才发现性能落差"的原因：**量化模型在 transformers 上从来没有被性能验证过**。
+
 **讲稿**
 > 按敏感度排序，我们出了三档配方。保守档只量化 42 层，全量化档 186 层，我们采用中间档 S2，量化 126 层，量化率 68%。保护的都是敏感度最高的那些：GDN 的状态投影、输出投影，以及标定出来误差最大的第 19、23 层的 qkv。
 >
-> 然后我们在 transformers 库里做了直接对比。这里要注意测试方式：权重是 int8 存储，但要反量化回 BF16 再算，激活也是 BF16——**这等价于只验证"量化带来的信息损失"，不涉及算子效率**。
+> 然后我们在 transformers 库里做了直接对比。这里要注意测试方式：权重是 int8 存储，但要反量化回 BF16 再算，激活也是 BF16——**这等价于只验证"量化带来的信息损失"，不涉及算子效率**。所以这一页**只有精度数据，没有 TTFT 和吞吐**：这条路径的耗时和 bf16 完全一样，性能不可比。换句话说，**量化模型在 transformers 上从来没有被性能检验过**，这也埋下了下一页"迁移到 sglang 才发现落差"的伏笔。
 >
 > 结果是：20 题上三种配方和 BF16 完全持平；30 题上 S2 是 73.3%，BF16 是 70%，表面还高 3.3 个点，但在 ±1 题的噪声范围内。全量化的 S3 在中文 20 题上掉到 85%，这就是我们放弃它的原因——**循环状态投影被量化，误差累积起来了**。
 >
@@ -228,12 +227,16 @@ transformers 库直接对比（权重 int8→BF16 反量化，激活 BF16）：
 ## P9 · 判断：为 decode 定制算子（1 min）
 
 **屏幕**
+- 量化模型落地后**重新做系统分析**：**GEMM 占 56.07%**（168,713 次），其中 `gemvt_op` **~266,000 次 ≈ 4400 calls/s**；element-wise ~30%、attention ~10%
+- → 量化确实改变了算子的执行分布，但 **decode 的瓶颈形态没变，仍是 GEMV 占主导**
 - decode 负载特征：单激活向量 × 大权重矩阵，GEMM 利用率极低（M=1 vs tile M=16）
 - 微基准：GEMV 在 M=1..8 区间比 GEMM 快约 2×，来源是**消除小 M 形态劣势 + Python dispatch 开销**
 - 设计边界：**复用 PPU 已有的 kernel primitive，只做面向工作负载的形态特化**——不碰 ISA、不手写 CUDA
 
 **讲稿**
-> 所以下一步很明确：**为 decode 阶段定制算子**。
+> 所以在动手之前，我们在量化模型上又做了一次系统分析：GEMM 占 56%、GEMV 的调用率约每秒 4400 次。**量化确实改变了算子的执行分布，但 decode 阶段的瓶颈形态没有变——还是 GEMV 占主导**。
+>
+> 下一步因此很明确：**为 decode 阶段定制算子**。
 >
 > 这里我先说设计边界，因为它决定了工程量和风险。我们没有去手写 CUDA、更没有碰 ISA 层，而是定了两条原则：
 >
@@ -471,7 +474,49 @@ apply() → gemv_int8_i8i8bf16(custom op) → gemv_nt_i8i8bf16 → Gemvt<int8_t,
 
 ---
 
-## P17 · 最终结果与结论（2 min）
+## P17 · 最终配置总表（量化模型 + 算子 + 图）（1.5 min）
+
+**屏幕**
+- 阶段：**量化模型（S2-aggressive）就位 + 算子定制 + 图优化全部落地**——即 P4 基线配置之上的完整形态
+
+服务器启动参数（提交件自动组装）：
+```
+--quantization w8a8_int8       ★必传（否则 fallback 到 compressed_tensors 路径，调 PPU 上不存在的 int8_scaled_mm，直接崩）
+--attention-backend fa3        --mm-attention-backend fa3
+--enable-piecewise-cuda-graph  --piecewise-cuda-graph-compiler inductor
+--cuda-graph-max-bs 16         --page-size 64          --disable-radix-cache
+--enable-multimodal            --dtype bfloat16        --mem-fraction-static 0.75
+```
+在基线之上新增的关键环境变量（= 量化 / 算子 / 图 三组）：
+
+| 组 | 变量 | 值 | 作用 |
+|---|---|---|---|
+| 量化 | `SGLANG_SAIL_DEEPGEMM_DENSE` | 1 | 进入 DeepGEMM 分支（保护性开关，让 ACEXT 路径永远到不了） |
+| 算子 | `SGLANG_SAIL_USE_GEMV` | 1 | decode 走 INT8 GEMV |
+| 算子 | `SGLANG_SAIL_GEMV_M_MAX` | **8** | decode/prefill 分派阈值 |
+| 算子 | `SGLANG_SAIL_PREFILL_BF16` | 1 | prefill 反量化走 BF16 GEMM |
+| 算子 | `SGLANG_SAIL_GEMV_WARMUP_ON_LOAD` | 1 | 加载期预热 JIT，推理期零编译 |
+| 图 | `SGLANG_VIT_ENABLE_CUDA_GRAPH` | 1 | ViT 图捕获 |
+| 图 | `SGLANG_CUDA_GRAPH_MAX_BS` | 16 | decode 图覆盖 bs=1..16（实测 sweet spot） |
+| 图 | `SGLANG_PIECEWISE_CUDA_GRAPH_COMPILER` | inductor | prefill 分段图 + 算子融合 |
+| 基线 | `SGLANG_SAIL_FLA_CUDA` | 1 | PPU 原生 GDN kernel（同 P4） |
+
+**明确禁用**：`--enforce-piecewise-cuda-graph`（触发 stream 断言杀死 scheduler）· `--enable-torch-compile`（PPU 上 causal conv codegen bug）· 任何 `--speculative-*`（GDN 不兼容，启动 12s 必崩）
+
+**讲稿**
+> 到这一步，量化、算子、图三件事都落地了，这是最终交付的完整配置。它等于 P4 那份基线配置，加上三组新东西。
+>
+> 量化这一组只有一条，但它必须显式传：`--quantization w8a8_int8`。不传会 fallback 到 compressed-tensors 路径，去调 PPU 上根本不存在的 `int8_scaled_mm`，直接崩。
+>
+> 算子这一组四条：`DEEPGEMM_DENSE` 是保护性开关，让厂商的 ACEXT 路径永远到不了——原因我在后面的结果页会用数据说明；`USE_GEMV` 和 `M_MAX=8` 决定 decode 走 GEMV、prefill 反量化走 BF16；`WARMUP_ON_LOAD` 让 JIT 在模型加载期就编译完，推理期零编译。
+>
+> 图这一组三条：ViT 图捕获、decode 图的 batch 覆盖上限取 16（我们实测的 sweet spot）、prefill 的分段图用 inductor 编译器做真正的算子融合。
+>
+> 最后是禁用项：`enforce-piecewise-cuda-graph` 会触发一个 stream 断言，把调度器直接干掉；`torch-compile` 在 PPU 上对 causal conv 的 codegen 有 bug；投机解码在 Qwen3.5 上完全不可用——这三条我们都写进了故障排查表。
+
+---
+
+## P18 · 最终结果与结论（2 min）
 
 **屏幕**
 
@@ -509,12 +554,13 @@ apply() → gemv_int8_i8i8bf16(custom op) → gemv_nt_i8i8bf16 → Gemvt<int8_t,
 | 页 | 建议时长 | 15 分钟压缩时删掉的内容 |
 |---|---|---|
 | P1–P2 | 1.5 min | P2 的软件版本细节 |
-| P3–P4 | 3.5 min | P4 的表格只留四个"必须" |
+| P3–P4 | 3.5 min | P4 只留 `FLA_CUDA` 一项与效果数字，否决项略过 |
 | P5–P7 | 5.5 min | P5 的量化模型 trace 细节；P7 的 S3 讨论 |
 | P8–P10 | 5 min | P10 的代码模板 |
 | P11–P14 | 7.5 min | P11 只留一行表格结论 |
 | P15–P16 | 4.5 min | P16 的根因 A 细节 |
-| P17 | 2 min | 否决清单改为口头一句 |
+| P17 | 1.5 min | 只讲三组各一句（量化 1 条 / 算子 4 条 / 图 3 条） |
+| P18 | 2 min | 否决清单改为口头一句 |
 
 **加时（30 分钟场）**：P10 展开讲 JIT 与 warmup 机制；P13 展开 custom op 与 fake impl 的实现细节；P16 展开 RoPE hook（`inductor._get_sfdp_patterns` 的 pin_memory 崩溃链路）。
 
@@ -544,12 +590,18 @@ A：中文零损失，英文在噪声内。而且如果不修，开着图捕获�
 **Q7：这套方案的通用性如何？**
 A：方法论可迁移（系统分析驱动 → 算子形态特化 → 图封装 → 分阶段分派），但具体结论强依赖硬件：INT8 GEMV 的收益来自 PPU 张量核的 BLOCK_M=16 限制，这是硬件特性。换硬件需要重新做 M 阈值标定。
 
+**Q8：transformers 的对比为什么只有精度、没有 TTFT 和吞吐？**
+A：因为那一步的算法是"权重 int8 → 反量化回 BF16 再算、激活保持 BF16"，**耗时与 bf16 完全相同，性能维度不可比**——它只用于验证"量化带来的信息损失"。真正的性能基线是另一组数据：bf16 原模型用 transformers 直接推理只有 **55 tok/s / TTFT 188 ms**（20 样本，见 P3），迁移到 sglang 并调优后（R6）相对它是 **TTFT −66%、吞吐 +680%**。**"量化模型在 transformers 上性能如何"这个问题本身不成立：量化模型从未在 transformers 上做过性能验证——这正是迁移到 sglang 之后才发现落差的原因。**
+
 ## 附录 C · 数据来源索引
 
 | 数据 | 来源 |
 |---|---|
-| G 组基线六组对照、asys profile 73.4% | `ce1e714:docs/02_DISCOVERY.md`、`docs/04_PROFILE.md`、`docs/06_FINAL_CONFIG.md` |
-| AMQ 敏感度表、三档配方、transformers 对比 | `eb5650f:docs/09_AMQ_QUANT_STRATEGY.md`、`recipes/*.yaml` |
+| 原始模型（bf16）asys profile 73.4%、gemvt 265,775 次、GEMV→层映射 | `ce1e714:docs/02_DISCOVERY.md`、`docs/04_PROFILE.md`、`docs/07_PROFILE_TO_KERNEL_MAP.md` |
+| G 组基线六组对照与最终配置 | `ce1e714:docs/02_DISCOVERY.md`、`docs/06_FINAL_CONFIG.md` |
+| **量化模型** trace：GEMM 56.07% / 4400 calls/s（P9 用） | `技术方案报告_完整版.md` §4.1 |
+| transformers 直接推理 baseline：acc 0.75 / TTFT 188 ms / 55 tok/s（P3 用，20 样本） | `技术方案报告_完整版.md` §1.3、§10.3 |
+| AMQ 敏感度表、三档配方、transformers 精度对比（**仅 acc，无 TTFT/吞吐**） | `eb5650f:docs/09_AMQ_QUANT_STRATEGY.md` §2–§4、`recipes/*.yaml` |
 | M=1 padding 94%、6/7 层更慢 1.22–2.32× | `f4a7743:EXPERIMENT.md` §28 |
 | Triton / LUT / Gemvt 三次微基准与端到端 | 同上 §29、§31、§32 |
 | CUDA Graph bs=256 证据、分派失效 | 同上 §30 |
